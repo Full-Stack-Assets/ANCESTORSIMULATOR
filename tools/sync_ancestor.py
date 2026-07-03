@@ -43,8 +43,13 @@ def find_occupation(person: dict) -> dict | None:
     return None
 
 
-def build_spouse(person: dict, anc: Path) -> dict | None:
-    """Resolve the first spouse to a small summary, if their record exists."""
+def build_spouse(person: dict, anc: Path, waypoints: list[dict]) -> dict | None:
+    """Resolve the first spouse to a small summary, if their record exists.
+
+    Marriage year/place prefer a matching journey waypoint (event containing
+    "marriage") over the person record's raw structured field: the journey
+    carries corrections the raw export doesn't (e.g. a marriage date the
+    research disproved), same principle as the birth/death year handling."""
     spouses = person.get("relationships", {}).get("spouses", [])
     if not spouses:
         return None
@@ -55,12 +60,21 @@ def build_spouse(person: dict, anc: Path) -> dict | None:
         return None
     spouse = json.loads(spouse_path.read_text())
     sv = spouse.get("vitals", {})
+
+    marriage_wp = next((w for w in waypoints if "marriage" in w["event"].lower()), None)
+    if marriage_wp:
+        marriage_year = marriage_wp["date"]["year"] if marriage_wp.get("date") else None
+        marriage_place = marriage_wp["place"]["raw"]
+    else:
+        marriage_year = (marriage.get("date") or {}).get("year")
+        marriage_place = (marriage.get("place") or {}).get("raw")
+
     return {
         "name": spouse["name"]["full"],
-        "birthYear": (sv.get("birth") or {}).get("date", {}).get("year"),
-        "deathYear": (sv.get("death") or {}).get("date", {}).get("year"),
-        "marriageYear": marriage.get("date", {}).get("year"),
-        "marriagePlace": (marriage.get("place") or {}).get("raw"),
+        "birthYear": ((sv.get("birth") or {}).get("date") or {}).get("year"),
+        "deathYear": ((sv.get("death") or {}).get("date") or {}).get("year"),
+        "marriageYear": marriage_year,
+        "marriagePlace": marriage_place,
         "confidence": spouse.get("confidence", "inferred"),
     }
 
@@ -73,6 +87,11 @@ def build_spouse(person: dict, anc: Path) -> dict | None:
 # without an entry.
 FAMILY_OVERRIDES = {
     "I182197770339": {
+        "legacyNote": (
+            "He left the Otter Branch plantation, and the brick homestead he built in 1743, to his "
+            "grandson John — and the land still carries the family's name today, in the New Jersey "
+            "locality of Albertson. Six generations later, his line reaches you."
+        ),
         "childrenNote": (
             "Nine children, per Clement (1877) pp. 106-108 and Prowell (1886) p. 674, "
             "cross-checked against wills and Haddonfield Meeting minutes."
@@ -89,7 +108,32 @@ FAMILY_OVERRIDES = {
             {"name": "Ann", "fate": "m. Ebenezer Hopkins, then Jacob Jennings"},
         ],
         "childrenConfidence": "documented",
-    }
+    },
+    "I182197776810": {
+        "legacyNote": (
+            "The Irish Quaker who crossed an ocean left seven children, two mills on the Poquessing, "
+            "and a family that stayed on the land he settled for generations — including the son of the "
+            "next chapter, and eventually you."
+        ),
+        "familyNote": (
+            "Two wives, two families. Jane (Preston) died before 1695; William married the widow "
+            "Hannah Drewett within the next year or two."
+        ),
+        "childrenNote": (
+            "Per William's will (7 Dec 1709, proved 17 Jan 1709/10) and the WikiTree Quakers Project "
+            "profile (Alberson-96)."
+        ),
+        "children": [
+            {"name": "William Jr.", "fate": "by Jane Preston — m. Esther Willis (Long Island) 1695; inherited the Newton homestead; West Jersey Assemblyman"},
+            {"name": "Abraham", "fate": "by Jane Preston — m. Hannah Medcalf; received the 1692 Gloucester-bounds tract"},
+            {"name": "Rebecca", "fate": "by Jane Preston — m. Joseph Satterthwaite"},
+            {"name": "Ann", "fate": "by Jane Preston — m. (1) Walter Forrest of Byberry Mill 1686, (2) John Kaighn c. 1694; predeceased her father"},
+            {"name": "Benjamin", "fate": "by Hannah Drewett — m. Sarah Walton, 1724, Abington Meeting"},
+            {"name": "Cassandra", "fate": "by Hannah Drewett — m. her step-brother Jarvis Stockdale"},
+            {"name": "Josiah", "fate": "by Hannah Drewett — the ancestor of the previous chapter"},
+        ],
+        "childrenConfidence": "documented",
+    },
 }
 
 
@@ -111,10 +155,10 @@ def main() -> int:
     birth_wp = next((w for w in waypoints if w["event"] == "birth"), None)
     death_wp = next((w for w in waypoints if w["event"] == "death"), None)
     vitals = person.get("vitals", {})
-    birth_year = (birth_wp or {}).get("date", {}).get("year") if birth_wp else (
-        vitals.get("birth") or {}).get("date", {}).get("year")
-    death_year = (death_wp or {}).get("date", {}).get("year") if death_wp else (
-        vitals.get("death") or {}).get("date", {}).get("year")
+    birth_year = ((birth_wp or {}).get("date") or {}).get("year") if birth_wp else (
+        (vitals.get("birth") or {}).get("date") or {}).get("year")
+    death_year = ((death_wp or {}).get("date") or {}).get("year") if death_wp else (
+        (vitals.get("death") or {}).get("date") or {}).get("year")
 
     family_override = FAMILY_OVERRIDES.get(args.id, {})
     out = {
@@ -126,7 +170,9 @@ def main() -> int:
         "journeyStatus": journey.get("status"),
         "waypoints": [build_waypoint(w) for w in journey["waypoints"]],
         "occupation": find_occupation(person),
-        "spouse": build_spouse(person, anc),
+        "spouse": build_spouse(person, anc, waypoints),
+        "legacyNote": family_override.get("legacyNote"),
+        "familyNote": family_override.get("familyNote"),
         "children": family_override.get("children", []),
         "childrenNote": family_override.get("childrenNote"),
         "childrenConfidence": family_override.get("childrenConfidence"),

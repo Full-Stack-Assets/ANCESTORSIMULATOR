@@ -1,11 +1,16 @@
-// Ancestor Journey — vertical slice: Josiah Albertson.
+// Ancestor Journey — the archive and its playable chapters.
 // Plain canvas 2D, no dependencies, no build step. Open index.html directly
 // or serve the repo root with any static file server.
 
 import { JOSIAH } from './data/josiah.js';
+import { WILLIAM } from './data/william.js';
 
-// exposed for the smoke-test driver (tools/smoke.mjs) only
-window.__ANC_WAYPOINT_COUNT__ = JOSIAH.waypoints.length;
+// One entry per playable ancestor. Add a new chapter by running
+// tools/sync_ancestor.py for a reviewed ANC ancestor and adding it here.
+const CHAPTERS = [
+  { data: WILLIAM, teaser: 'An Irish Quaker who crossed an ocean to found a settlement.' },
+  { data: JOSIAH, teaser: "His son — a shoemaker who never left the fifteen miles his father settled." },
+];
 
 const CONFIDENCE_COLOR = {
   documented: '#3ba55c',
@@ -28,9 +33,11 @@ const ctx = canvas.getContext('2d');
 const W = canvas.width;
 const H = canvas.height;
 
-/** @type {{screen: string, progress: number, activeIndex: number|null, focusIndex: number, buttons: Array}} */
+/** @type {{screen: string, chapter: object|null, chapterFocus: number, progress: number, activeIndex: number|null, focusIndex: number, buttons: Array}} */
 const state = {
-  screen: 'title', // 'title' | 'map' | 'detail' | 'family' | 'end'
+  screen: 'archive', // 'archive' | 'title' | 'map' | 'detail' | 'family' | 'end'
+  chapter: null, // the selected CHAPTERS[i].data — set on leaving 'archive'
+  chapterFocus: 0, // keyboard-focused chapter card on the archive screen
   progress: 0, // index of the furthest unlocked waypoint (0-based)
   activeIndex: null, // waypoint being viewed in the detail panel
   focusIndex: 0, // keyboard-focused node on the map screen (0..progress)
@@ -109,14 +116,66 @@ function clearStage() {
 function render() {
   state.buttons = [];
   clearStage();
-  if (state.screen === 'title') renderTitle();
+  if (state.screen === 'archive') renderArchive();
+  else if (state.screen === 'title') renderTitle();
   else if (state.screen === 'map') renderMap();
   else if (state.screen === 'detail') renderDetail();
   else if (state.screen === 'family') renderFamily();
   else if (state.screen === 'end') renderEnd();
 }
 
+function renderArchive() {
+  ctx.fillStyle = '#1c2530';
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 34px Georgia, serif';
+  ctx.fillText('THE ARCHIVE', W / 2, 90);
+  ctx.font = 'italic 15px Georgia, serif';
+  ctx.fillText('Choose an ancestor to walk their documented life.', W / 2, 120);
+
+  const cardW = 380, cardH = 150, gap = 30;
+  const totalW = CHAPTERS.length * cardW + (CHAPTERS.length - 1) * gap;
+  const startX = W / 2 - totalW / 2;
+  const cardY = 180;
+
+  CHAPTERS.forEach((ch, i) => {
+    const cx = startX + i * (cardW + gap);
+    ctx.fillStyle = 'rgba(20, 26, 32, 0.92)';
+    roundRect(cx, cardY, cardW, cardH, 10);
+    ctx.fill();
+    ctx.strokeStyle = i === state.chapterFocus ? '#f2c14e' : '#556170';
+    ctx.lineWidth = i === state.chapterFocus ? 3 : 2;
+    roundRect(cx, cardY, cardW, cardH, 10);
+    ctx.stroke();
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#f2efe6';
+    ctx.font = 'bold 20px Georgia, serif';
+    ctx.fillText(ch.data.name, cx + 20, cardY + 36);
+    ctx.font = '14px Georgia, serif';
+    ctx.fillStyle = '#c9d0d6';
+    ctx.fillText(`c. ${ch.data.birthYear} – ${ch.data.deathYear}`, cx + 20, cardY + 58);
+    ctx.font = 'italic 13px Arial, sans-serif';
+    ctx.fillStyle = '#9aa3a8';
+    const lines = wrapText(ch.teaser, cardW - 40);
+    let ty = cardY + 84;
+    for (const line of lines) {
+      ctx.fillText(line, cx + 20, ty);
+      ty += 18;
+    }
+
+    addButton(cx, cardY, cardW, cardH, () => {
+      state.chapter = ch.data;
+      state.progress = 0;
+      state.activeIndex = null;
+      state.focusIndex = 0;
+      state.screen = 'title';
+      render();
+    });
+  });
+}
+
 function renderTitle() {
+  const JOSIAH = state.chapter;
   ctx.fillStyle = '#1c2530';
   ctx.textAlign = 'center';
   ctx.font = 'bold 40px Georgia, serif';
@@ -131,7 +190,11 @@ function renderTitle() {
   ctx.fillText(`c. ${JOSIAH.birthYear} – ${JOSIAH.deathYear}`, W / 2, 260);
 
   ctx.font = '15px Arial, sans-serif';
-  const lines = wrapText(JOSIAH.summary, 640);
+  const MAX_SUMMARY_LINES = 7; // longer bios (e.g. William's two-wife life) must not push the button off-canvas
+  const allLines = wrapText(JOSIAH.summary, 640);
+  const lines = allLines.length > MAX_SUMMARY_LINES
+    ? [...allLines.slice(0, MAX_SUMMARY_LINES - 1), allLines[MAX_SUMMARY_LINES - 1].replace(/\s*\S*$/, '') + '…']
+    : allLines;
   let y = 310;
   for (const line of lines) {
     ctx.fillText(line, W / 2, y);
@@ -139,15 +202,18 @@ function renderTitle() {
   }
 
   const bw = 220, bh = 46;
-  addButton(W / 2 - bw / 2, y + 20, bw, bh, () => {
+  // Clamp as a backstop too: no summary length should ever push this off-canvas.
+  const by = Math.min(y + 20, H - bh - 24);
+  addButton(W / 2 - bw / 2, by, bw, bh, () => {
     state.screen = 'map';
     state.focusIndex = state.progress;
     render();
   });
-  drawButton(W / 2 - bw / 2, y + 20, bw, bh, 'Begin the Journey');
+  drawButton(W / 2 - bw / 2, by, bw, bh, 'Begin the Journey');
 }
 
 function renderMap() {
+  const JOSIAH = state.chapter;
   const positions = nodePositions(JOSIAH.waypoints.length);
 
   ctx.strokeStyle = '#8a7a55';
@@ -225,6 +291,7 @@ function renderMap() {
 }
 
 function renderDetail() {
+  const JOSIAH = state.chapter;
   const i = state.activeIndex;
   const wp = JOSIAH.waypoints[i];
 
@@ -279,7 +346,7 @@ function renderDetail() {
   const isLast = i === JOSIAH.waypoints.length - 1;
 
   if (isFrontier) {
-    drawButton(bx, by, bw, bh, isLast ? 'See His Family & Legacy →' : 'Continue Journey →');
+    drawButton(bx, by, bw, bh, isLast ? 'See the Family & Legacy →' : 'Continue Journey →');
     addButton(bx, by, bw, bh, () => {
       if (isLast) {
         state.screen = 'family';
@@ -300,6 +367,7 @@ function renderDetail() {
 }
 
 function renderFamily() {
+  const JOSIAH = state.chapter;
   renderMapBackdrop();
 
   const px = 60, py = 50, pw = W - 120, ph = H - 100;
@@ -343,6 +411,17 @@ function renderFamily() {
       px + 24,
       y
     );
+  }
+
+  if (JOSIAH.familyNote) {
+    y += 20;
+    ctx.font = 'italic 12px Georgia, serif';
+    ctx.fillStyle = '#9aa3a8';
+    for (const line of wrapText(JOSIAH.familyNote, pw - 48)) {
+      ctx.fillText(line, px + 24, y);
+      y += 16;
+    }
+    ctx.font = '13px Arial, sans-serif';
   }
 
   y += 26;
@@ -395,10 +474,11 @@ function renderMapBackdrop() {
 }
 
 function renderEnd() {
+  const JOSIAH = state.chapter;
   ctx.textAlign = 'center';
   ctx.fillStyle = '#1c2530';
   ctx.font = 'bold 30px Georgia, serif';
-  ctx.fillText('End of Chapter One', W / 2, 130);
+  ctx.fillText('End of Chapter', W / 2, 130);
 
   ctx.font = '18px Georgia, serif';
   ctx.fillText(
@@ -408,26 +488,29 @@ function renderEnd() {
   );
 
   ctx.font = '15px Arial, sans-serif';
-  const legacy =
-    'He left the Otter Branch plantation, and the brick homestead he built in 1743, ' +
-    "to his grandson John — and the land still carries the family's name today, " +
-    'in the New Jersey locality of Albertson. Six generations later, his line reaches you.';
-  const lines = wrapText(legacy, 640);
+  const MAX_LEGACY_LINES = 7; // same off-canvas-button risk as the title screen — see renderTitle
+  const allLines = wrapText(JOSIAH.legacyNote || '', 640);
+  const lines = allLines.length > MAX_LEGACY_LINES
+    ? [...allLines.slice(0, MAX_LEGACY_LINES - 1), allLines[MAX_LEGACY_LINES - 1].replace(/\s*\S*$/, '') + '…']
+    : allLines;
   let y = 220;
   for (const line of lines) {
     ctx.fillText(line, W / 2, y);
     y += 22;
   }
 
-  const bw = 200, bh = 46;
-  addButton(W / 2 - bw / 2, y + 30, bw, bh, () => {
+  const bw = 220, bh = 46;
+  const by = Math.min(y + 30, H - bh - 24);
+  addButton(W / 2 - bw / 2, by, bw, bh, () => {
+    state.chapter = null;
     state.progress = 0;
     state.activeIndex = null;
     state.focusIndex = 0;
-    state.screen = 'title';
+    state.chapterFocus = 0;
+    state.screen = 'archive';
     render();
   });
-  drawButton(W / 2 - bw / 2, y + 30, bw, bh, 'Play Again');
+  drawButton(W / 2 - bw / 2, by, bw, bh, 'Return to the Archive');
 }
 
 // exposed for the smoke-test driver (tools/smoke.mjs) only — returns the
@@ -435,8 +518,12 @@ function renderEnd() {
 // at real positions instead of guessing canvas coordinates.
 window.__ANC_DEBUG_STATE__ = () => ({
   screen: state.screen,
+  chapterId: state.chapter ? state.chapter.id : null,
+  waypointCount: state.chapter ? state.chapter.waypoints.length : null,
+  chapterCount: CHAPTERS.length,
   progress: state.progress,
   focusIndex: state.focusIndex,
+  chapterFocus: state.chapterFocus,
   buttons: state.buttons.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h })),
 });
 
@@ -465,7 +552,18 @@ canvas.addEventListener('click', (evt) => {
 // opens the focused node; on every other screen (exactly one primary button
 // each in this vertical slice) Enter/Space activates it directly.
 window.addEventListener('keydown', (evt) => {
-  if (state.screen === 'map') {
+  if (state.screen === 'archive') {
+    if (evt.key === 'ArrowLeft') {
+      state.chapterFocus = Math.max(0, state.chapterFocus - 1);
+      render();
+    } else if (evt.key === 'ArrowRight') {
+      state.chapterFocus = Math.min(CHAPTERS.length - 1, state.chapterFocus + 1);
+      render();
+    } else if (evt.key === 'Enter' || evt.key === ' ') {
+      evt.preventDefault();
+      if (state.buttons[state.chapterFocus]) state.buttons[state.chapterFocus].onClick();
+    }
+  } else if (state.screen === 'map') {
     if (evt.key === 'ArrowLeft') {
       state.focusIndex = Math.max(0, state.focusIndex - 1);
       render();

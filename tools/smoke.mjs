@@ -1,7 +1,7 @@
 // Smoke-test driver for the Ancestor Journey web game.
-// Launches the game in real Chromium (via Playwright), clicks through the
-// full Josiah Albertson vertical slice end to end using REAL mouse events at
-// the game's own reported button positions (window.__ANC_DEBUG_STATE__ —
+// Launches the game in real Chromium (via Playwright), selects each chapter
+// from the archive and clicks through it end to end using REAL mouse events
+// at the game's own reported button positions (window.__ANC_DEBUG_STATE__ —
 // exposed by src/main.js for exactly this purpose), and saves a screenshot
 // at every stage. Fails loudly on any console error or a click that finds
 // no matching button.
@@ -30,53 +30,41 @@ async function main() {
 
   await page.goto(`${BASE_URL}/index.html`);
   await page.waitForTimeout(300);
-  await shot(page, '01-title');
-  await assertScreen(page, 'title');
+  await shot(page, '00-archive');
+  await assertScreen(page, 'archive');
 
-  await clickFirstButton(page);
-  await page.waitForTimeout(200);
-  await shot(page, '02-map');
-  await assertScreen(page, 'map');
+  const archiveState = await debugState(page);
+  console.log('chapters available:', archiveState.chapterCount);
+  if (archiveState.chapterCount < 2) throw new Error(`expected >=2 chapters, got ${archiveState.chapterCount}`);
 
-  const waypointCount = await page.evaluate(() => window.__ANC_WAYPOINT_COUNT__ ?? null);
-  console.log('waypoint count reported by page:', waypointCount);
-  if (waypointCount !== 6) throw new Error(`expected 6 waypoints, page reports ${waypointCount}`);
-
-  for (let i = 0; i < waypointCount; i++) {
-    // node buttons are the first `progress+1` buttons on the map screen
-    await clickButtonAt(page, i);
-    await page.waitForTimeout(150);
-    const afterOpen = await debugState(page);
-    if (afterOpen.screen !== 'detail') {
-      throw new Error(`clicking node ${i} did not open detail (screen=${afterOpen.screen})`);
-    }
-    await shot(page, `03-detail-${i}`);
-
-    await clickFirstButton(page); // Continue / Close / (on the last node) See Family & Legacy
-    await page.waitForTimeout(150);
+  // Play every chapter by mouse, in order, verifying it returns to the
+  // archive with the RIGHT chapter's data each time (not stale state from
+  // a previous playthrough).
+  for (let c = 0; c < archiveState.chapterCount; c++) {
+    await playChapterByMouse(page, c, `chapter${c}`);
   }
 
-  await shot(page, '04-family');
-  await assertScreen(page, 'family');
-
-  await clickFirstButton(page); // Continue -> end
-  await page.waitForTimeout(150);
-  await shot(page, '05-end');
-  await assertScreen(page, 'end');
-
-  // Keyboard navigation: Play Again (Enter on the end screen's single button),
-  // then drive the whole map screen by keyboard alone for one node.
+  // Keyboard-only pass: select the second card by arrow keys + Enter from the
+  // archive, then drive one full node by keyboard alone.
+  await assertScreen(page, 'archive');
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(100);
+  const kbArchive = await debugState(page);
+  if (kbArchive.chapterFocus !== 1) throw new Error(`ArrowRight did not move chapterFocus to 1 (got ${kbArchive.chapterFocus})`);
   await page.keyboard.press('Enter');
   await page.waitForTimeout(150);
-  await assertScreen(page, 'title');
+  const afterKbSelect = await debugState(page);
+  if (afterKbSelect.screen !== 'title') throw new Error(`keyboard chapter select did not reach title (screen=${afterKbSelect.screen})`);
+  await shot(page, '99-keyboard-select-title');
+
   await page.keyboard.press('Enter'); // Begin the Journey
   await page.waitForTimeout(150);
   await assertScreen(page, 'map');
   await page.keyboard.press('Enter'); // open the focused (only reachable) node
   await page.waitForTimeout(150);
-  const kbState = await debugState(page);
-  if (kbState.screen !== 'detail') throw new Error(`keyboard Enter on map did not open detail (screen=${kbState.screen})`);
-  await shot(page, '06-keyboard-detail');
+  const kbDetail = await debugState(page);
+  if (kbDetail.screen !== 'detail') throw new Error(`keyboard Enter on map did not open detail (screen=${kbDetail.screen})`);
+  await shot(page, '99-keyboard-detail');
 
   await browser.close();
 
@@ -86,6 +74,52 @@ async function main() {
     process.exit(1);
   }
   console.log(`OK — screenshots in ${OUT_DIR}`);
+}
+
+/** Select chapter `index` from the archive by mouse, play its full loop
+ * (every waypoint -> family -> end), and return to the archive. */
+async function playChapterByMouse(page, index, prefix) {
+  await assertScreen(page, 'archive');
+  await clickButtonAt(page, index);
+  await page.waitForTimeout(200);
+  const afterSelect = await debugState(page);
+  if (afterSelect.screen !== 'title') throw new Error(`selecting chapter ${index} did not reach title (screen=${afterSelect.screen})`);
+  const chapterId = afterSelect.chapterId;
+  await shot(page, `${prefix}-01-title`);
+
+  await clickFirstButton(page); // Begin the Journey
+  await page.waitForTimeout(200);
+  await shot(page, `${prefix}-02-map`);
+  await assertScreen(page, 'map');
+
+  const mapState = await debugState(page);
+  const waypointCount = mapState.waypointCount;
+  console.log(`[${prefix}] chapter=${chapterId} waypoints=${waypointCount}`);
+  if (!waypointCount || waypointCount < 1) throw new Error(`chapter ${chapterId} reports ${waypointCount} waypoints`);
+
+  for (let i = 0; i < waypointCount; i++) {
+    await clickButtonAt(page, i);
+    await page.waitForTimeout(150);
+    const afterOpen = await debugState(page);
+    if (afterOpen.screen !== 'detail') {
+      throw new Error(`[${prefix}] clicking node ${i} did not open detail (screen=${afterOpen.screen})`);
+    }
+    await shot(page, `${prefix}-03-detail-${i}`);
+    await clickFirstButton(page); // Continue / Close / (last node) Family & Legacy
+    await page.waitForTimeout(150);
+  }
+
+  await shot(page, `${prefix}-04-family`);
+  await assertScreen(page, 'family');
+
+  await clickFirstButton(page); // Continue -> end
+  await page.waitForTimeout(150);
+  await shot(page, `${prefix}-05-end`);
+  await assertScreen(page, 'end');
+
+  await clickFirstButton(page); // Return to the Archive
+  await page.waitForTimeout(150);
+  await assertScreen(page, 'archive');
 }
 
 async function shot(page, name) {
@@ -103,7 +137,8 @@ async function assertScreen(page, expected) {
   }
 }
 
-/** Click the current furthest-progress node on the map screen (index-th button). */
+/** Click the button at a specific index on the current screen (map nodes,
+ * archive chapter cards — anywhere buttons are added in a stable order). */
 async function clickButtonAt(page, index) {
   const s = await debugState(page);
   const btn = s.buttons[index];
@@ -111,7 +146,7 @@ async function clickButtonAt(page, index) {
   await clickCanvasRect(page, btn);
 }
 
-/** Click whatever the single primary button on screen is (title/detail/end all expose exactly one actionable button as buttons[0] in this vertical slice). */
+/** Click whatever the single primary button on screen is (title/detail/family/end all expose exactly one actionable button as buttons[0] in this vertical slice). */
 async function clickFirstButton(page) {
   const s = await debugState(page);
   if (!s.buttons.length) throw new Error(`no clickable buttons on screen "${s.screen}"`);

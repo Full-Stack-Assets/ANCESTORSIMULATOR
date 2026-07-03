@@ -85,9 +85,11 @@ export const JOSIAH = {
     "birthYear": 1703,
     "deathYear": 1767,
     "marriageYear": 1727,
-    "marriagePlace": "Camden, New Jersey",
+    "marriagePlace": "Newton (later Haddonfield) Monthly Meeting, New Jersey",
     "confidence": "documented"
   },
+  "legacyNote": "He left the Otter Branch plantation, and the brick homestead he built in 1743, to his grandson John — and the land still carries the family's name today, in the New Jersey locality of Albertson. Six generations later, his line reaches you.",
+  "familyNote": null,
   "children": [
     {
       "name": "Hannah",

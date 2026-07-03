@@ -35,6 +35,64 @@ def build_waypoint(w: dict) -> dict:
     }
 
 
+def find_occupation(person: dict) -> dict | None:
+    """Pull an occupation from person.manual.events, if the research recorded one."""
+    for ev in person.get("manual", {}).get("events", []):
+        if ev.get("type") == "occupation" and ev.get("value"):
+            return {"value": ev["value"], "confidence": ev.get("confidence", "documented")}
+    return None
+
+
+def build_spouse(person: dict, anc: Path) -> dict | None:
+    """Resolve the first spouse to a small summary, if their record exists."""
+    spouses = person.get("relationships", {}).get("spouses", [])
+    if not spouses:
+        return None
+    sp = spouses[0]
+    marriage = sp.get("marriage") or {}
+    spouse_path = anc / "data" / "people" / f"{sp['id']}.json"
+    if not spouse_path.exists():
+        return None
+    spouse = json.loads(spouse_path.read_text())
+    sv = spouse.get("vitals", {})
+    return {
+        "name": spouse["name"]["full"],
+        "birthYear": (sv.get("birth") or {}).get("date", {}).get("year"),
+        "deathYear": (sv.get("death") or {}).get("date", {}).get("year"),
+        "marriageYear": marriage.get("date", {}).get("year"),
+        "marriagePlace": (marriage.get("place") or {}).get("raw"),
+        "confidence": spouse.get("confidence", "inferred"),
+    }
+
+
+# Hand-verified family summaries too granular to live as linked person records
+# in the ANC export (most are named only in a researched prose note, not as
+# separate GEDCOM individuals). Each entry is lifted verbatim from that
+# person's data/people/{id}.json manual.notes — same citations, just
+# restructured for display. Keyed by ANC id; harmless no-op for ancestors
+# without an entry.
+FAMILY_OVERRIDES = {
+    "I182197770339": {
+        "childrenNote": (
+            "Nine children, per Clement (1877) pp. 106-108 and Prowell (1886) p. 674, "
+            "cross-checked against wills and Haddonfield Meeting minutes."
+        ),
+        "children": [
+            {"name": "Hannah", "fate": "m. Jacob Clement, 1747"},
+            {"name": "Mary", "fate": "m. Thomas Hackney (her 1779 will names ‘my father Josiah Alberson’)"},
+            {"name": "Cassandra", "fate": "m. Jacob Ellis 1750, then Jacob Burrough"},
+            {"name": "Patience", "fate": "m. Isaac Ballinger"},
+            {"name": "Elizabeth", "fate": "died unmarried"},
+            {"name": "Josiah Jr.", "fate": "m. Eleanor Tomlinson, then Judith Boggs; died winter 1782/83, predeceasing his father"},
+            {"name": "Sarah", "fate": "m. Samuel Webster"},
+            {"name": "Keturah", "fate": "m. Isaac Townsend"},
+            {"name": "Ann", "fate": "m. Ebenezer Hopkins, then Jacob Jennings"},
+        ],
+        "childrenConfidence": "documented",
+    }
+}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--anc", required=True, help="path to an ANC repo checkout")
@@ -58,6 +116,7 @@ def main() -> int:
     death_year = (death_wp or {}).get("date", {}).get("year") if death_wp else (
         vitals.get("death") or {}).get("date", {}).get("year")
 
+    family_override = FAMILY_OVERRIDES.get(args.id, {})
     out = {
         "id": args.id,
         "name": person["name"]["full"],
@@ -66,6 +125,11 @@ def main() -> int:
         "summary": journey.get("summary"),
         "journeyStatus": journey.get("status"),
         "waypoints": [build_waypoint(w) for w in journey["waypoints"]],
+        "occupation": find_occupation(person),
+        "spouse": build_spouse(person, anc),
+        "children": family_override.get("children", []),
+        "childrenNote": family_override.get("childrenNote"),
+        "childrenConfidence": family_override.get("childrenConfidence"),
     }
 
     out_dir = Path(__file__).resolve().parent.parent / "src" / "data"

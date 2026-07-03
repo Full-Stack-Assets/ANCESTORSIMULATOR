@@ -52,12 +52,31 @@ async function main() {
     }
     await shot(page, `03-detail-${i}`);
 
-    await clickFirstButton(page); // Continue / Close
+    await clickFirstButton(page); // Continue / Close / (on the last node) See Family & Legacy
     await page.waitForTimeout(150);
   }
 
-  await shot(page, '04-end');
+  await shot(page, '04-family');
+  await assertScreen(page, 'family');
+
+  await clickFirstButton(page); // Continue -> end
+  await page.waitForTimeout(150);
+  await shot(page, '05-end');
   await assertScreen(page, 'end');
+
+  // Keyboard navigation: Play Again (Enter on the end screen's single button),
+  // then drive the whole map screen by keyboard alone for one node.
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(150);
+  await assertScreen(page, 'title');
+  await page.keyboard.press('Enter'); // Begin the Journey
+  await page.waitForTimeout(150);
+  await assertScreen(page, 'map');
+  await page.keyboard.press('Enter'); // open the focused (only reachable) node
+  await page.waitForTimeout(150);
+  const kbState = await debugState(page);
+  if (kbState.screen !== 'detail') throw new Error(`keyboard Enter on map did not open detail (screen=${kbState.screen})`);
+  await shot(page, '06-keyboard-detail');
 
   await browser.close();
 

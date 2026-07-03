@@ -27,6 +27,11 @@ canvas#stage {
   cursor: pointer;
 }
 
+canvas#stage:focus-visible {
+  outline: 3px solid #f2c14e;
+  outline-offset: 2px;
+}
+
 #legend {
   display: flex;
   gap: 18px;

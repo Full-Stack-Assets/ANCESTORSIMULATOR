@@ -28,11 +28,12 @@ const ctx = canvas.getContext('2d');
 const W = canvas.width;
 const H = canvas.height;
 
-/** @type {{screen: string, progress: number, activeIndex: number|null, buttons: Array}} */
+/** @type {{screen: string, progress: number, activeIndex: number|null, focusIndex: number, buttons: Array}} */
 const state = {
-  screen: 'title', // 'title' | 'map' | 'detail' | 'end'
+  screen: 'title', // 'title' | 'map' | 'detail' | 'family' | 'end'
   progress: 0, // index of the furthest unlocked waypoint (0-based)
   activeIndex: null, // waypoint being viewed in the detail panel
+  focusIndex: 0, // keyboard-focused node on the map screen (0..progress)
   buttons: [], // clickable rects for the current frame, hit-tested on click
 };
 
@@ -111,6 +112,7 @@ function render() {
   if (state.screen === 'title') renderTitle();
   else if (state.screen === 'map') renderMap();
   else if (state.screen === 'detail') renderDetail();
+  else if (state.screen === 'family') renderFamily();
   else if (state.screen === 'end') renderEnd();
 }
 
@@ -139,6 +141,7 @@ function renderTitle() {
   const bw = 220, bh = 46;
   addButton(W / 2 - bw / 2, y + 20, bw, bh, () => {
     state.screen = 'map';
+    state.focusIndex = state.progress;
     render();
   });
   drawButton(W / 2 - bw / 2, y + 20, bw, bh, 'Begin the Journey');
@@ -159,7 +162,11 @@ function renderMap() {
   ctx.fillText(`${JOSIAH.name} — the life`, W / 2, 40);
   ctx.font = '13px Arial, sans-serif';
   ctx.fillStyle = '#3a4550';
-  ctx.fillText('Click a stop along the path to read what really happened there.', W / 2, 62);
+  ctx.fillText(
+    'Click a stop along the path (or use ←/→ and Enter) to read what really happened there.',
+    W / 2,
+    62
+  );
 
   JOSIAH.waypoints.forEach((wp, i) => {
     const { x, y } = positions[i];
@@ -173,6 +180,16 @@ function renderMap() {
       ctx.strokeStyle = '#f2c14e';
       ctx.lineWidth = 3;
       ctx.stroke();
+    }
+
+    if (i === state.focusIndex) {
+      ctx.beginPath();
+      ctx.arc(x, y, 40, 0, Math.PI * 2);
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
 
     ctx.beginPath();
@@ -262,12 +279,13 @@ function renderDetail() {
   const isLast = i === JOSIAH.waypoints.length - 1;
 
   if (isFrontier) {
-    drawButton(bx, by, bw, bh, isLast ? 'Close the Chapter' : 'Continue Journey →');
+    drawButton(bx, by, bw, bh, isLast ? 'See His Family & Legacy →' : 'Continue Journey →');
     addButton(bx, by, bw, bh, () => {
       if (isLast) {
-        state.screen = 'end';
+        state.screen = 'family';
       } else {
         state.progress = Math.min(state.progress + 1, JOSIAH.waypoints.length - 1);
+        state.focusIndex = state.progress;
         state.screen = 'map';
       }
       render();
@@ -279,6 +297,94 @@ function renderDetail() {
       render();
     });
   }
+}
+
+function renderFamily() {
+  renderMapBackdrop();
+
+  const px = 60, py = 50, pw = W - 120, ph = H - 100;
+  ctx.fillStyle = 'rgba(20, 26, 32, 0.96)';
+  roundRect(px, py, pw, ph, 10);
+  ctx.fill();
+  ctx.strokeStyle = '#556170';
+  ctx.lineWidth = 2;
+  roundRect(px, py, pw, ph, 10);
+  ctx.stroke();
+
+  let y = py + 36;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#f2efe6';
+  ctx.font = 'bold 20px Georgia, serif';
+  ctx.fillText('FAMILY & LEGACY', px + 24, y);
+
+  const badgeColor = CONFIDENCE_COLOR[JOSIAH.childrenConfidence] || CONFIDENCE_COLOR.documented;
+  const badgeLabel = CONFIDENCE_LABEL[JOSIAH.childrenConfidence] || CONFIDENCE_LABEL.documented;
+  ctx.font = 'bold 12px Arial, sans-serif';
+  const badgeW = ctx.measureText(badgeLabel).width + 24;
+  ctx.fillStyle = badgeColor;
+  roundRect(px + pw - 24 - badgeW, y - 18, badgeW, 24, 12);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.fillText(badgeLabel, px + pw - 24 - badgeW / 2, y - 2);
+  ctx.textAlign = 'left';
+
+  y += 26;
+  ctx.font = '13px Arial, sans-serif';
+  ctx.fillStyle = '#9aa3a8';
+  const occ = JOSIAH.occupation ? JOSIAH.occupation.value : 'unrecorded';
+  ctx.fillText(`Occupation: ${occ}`, px + 24, y);
+
+  if (JOSIAH.spouse) {
+    y += 20;
+    const sp = JOSIAH.spouse;
+    ctx.fillText(
+      `Married ${sp.name} (${sp.birthYear}–${sp.deathYear}), ${sp.marriageYear} at ${sp.marriagePlace}`,
+      px + 24,
+      y
+    );
+  }
+
+  y += 26;
+  ctx.font = 'italic 12px Georgia, serif';
+  ctx.fillStyle = '#c9d0d6';
+  const noteLines = wrapText(JOSIAH.childrenNote || '', pw - 48);
+  for (const line of noteLines) {
+    ctx.fillText(line, px + 24, y);
+    y += 16;
+  }
+
+  y += 14;
+  const colCount = 3;
+  const colW = (pw - 48) / colCount;
+  const rowH = 54;
+  ctx.font = 'bold 14px Georgia, serif';
+  JOSIAH.children.forEach((child, i) => {
+    const col = i % colCount;
+    const row = Math.floor(i / colCount);
+    const cx = px + 24 + col * colW;
+    const cy = y + row * rowH;
+    ctx.fillStyle = '#f2efe6';
+    ctx.font = 'bold 14px Georgia, serif';
+    ctx.fillText(child.name, cx, cy);
+    ctx.fillStyle = '#b7c2c9';
+    ctx.font = '11px Arial, sans-serif';
+    const lines = wrapText(child.fate, colW - 16);
+    let cyy = cy + 16;
+    for (const line of lines.slice(0, 2)) {
+      ctx.fillText(line, cx, cyy);
+      cyy += 14;
+    }
+  });
+
+  const bw = 200, bh = 44;
+  const bx = px + pw - 24 - bw;
+  const by = py + ph - 24 - bh;
+  drawButton(bx, by, bw, bh, 'Continue →');
+  addButton(bx, by, bw, bh, () => {
+    state.screen = 'end';
+    render();
+  });
 }
 
 function renderMapBackdrop() {
@@ -317,6 +423,7 @@ function renderEnd() {
   addButton(W / 2 - bw / 2, y + 30, bw, bh, () => {
     state.progress = 0;
     state.activeIndex = null;
+    state.focusIndex = 0;
     state.screen = 'title';
     render();
   });
@@ -329,10 +436,13 @@ function renderEnd() {
 window.__ANC_DEBUG_STATE__ = () => ({
   screen: state.screen,
   progress: state.progress,
+  focusIndex: state.focusIndex,
   buttons: state.buttons.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h })),
 });
 
+canvas.tabIndex = 0; // make the canvas keyboard-focusable
 canvas.addEventListener('click', (evt) => {
+  canvas.focus();
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
   const scaleY = canvas.height / rect.height;
@@ -348,6 +458,29 @@ canvas.addEventListener('click', (evt) => {
       b.onClick();
       return;
     }
+  }
+});
+
+// Keyboard: ←/→ move focus among reached nodes on the map screen, Enter/Space
+// opens the focused node; on every other screen (exactly one primary button
+// each in this vertical slice) Enter/Space activates it directly.
+window.addEventListener('keydown', (evt) => {
+  if (state.screen === 'map') {
+    if (evt.key === 'ArrowLeft') {
+      state.focusIndex = Math.max(0, state.focusIndex - 1);
+      render();
+    } else if (evt.key === 'ArrowRight') {
+      state.focusIndex = Math.min(state.progress, state.focusIndex + 1);
+      render();
+    } else if (evt.key === 'Enter' || evt.key === ' ') {
+      evt.preventDefault();
+      state.activeIndex = state.focusIndex;
+      state.screen = 'detail';
+      render();
+    }
+  } else if (evt.key === 'Enter' || evt.key === ' ') {
+    evt.preventDefault();
+    if (state.buttons[0]) state.buttons[0].onClick();
   }
 });
 

@@ -75,5 +75,57 @@ export const JOSIAH = {
       "narrative": "Made his will 7 December 1783 — 'Josiah Albertson, of Gloucester Township, yeoman' — leaving the plantation to grandson John, his only son Josiah Jr. having died the previous winter. The estate inventory of £130.14.3 was taken 10 March 1784 and the will proved on the 16th: the date family trees mistook for his death. He was about 78, not the 92 the false 1692 birth implied.",
       "confidence": "documented"
     }
-  ]
+  ],
+  "occupation": {
+    "value": "Shoemaker; farmer and lumberman",
+    "confidence": "documented"
+  },
+  "spouse": {
+    "name": "Ann Austin",
+    "birthYear": 1703,
+    "deathYear": 1767,
+    "marriageYear": 1727,
+    "marriagePlace": "Camden, New Jersey",
+    "confidence": "documented"
+  },
+  "children": [
+    {
+      "name": "Hannah",
+      "fate": "m. Jacob Clement, 1747"
+    },
+    {
+      "name": "Mary",
+      "fate": "m. Thomas Hackney (her 1779 will names ‘my father Josiah Alberson’)"
+    },
+    {
+      "name": "Cassandra",
+      "fate": "m. Jacob Ellis 1750, then Jacob Burrough"
+    },
+    {
+      "name": "Patience",
+      "fate": "m. Isaac Ballinger"
+    },
+    {
+      "name": "Elizabeth",
+      "fate": "died unmarried"
+    },
+    {
+      "name": "Josiah Jr.",
+      "fate": "m. Eleanor Tomlinson, then Judith Boggs; died winter 1782/83, predeceasing his father"
+    },
+    {
+      "name": "Sarah",
+      "fate": "m. Samuel Webster"
+    },
+    {
+      "name": "Keturah",
+      "fate": "m. Isaac Townsend"
+    },
+    {
+      "name": "Ann",
+      "fate": "m. Ebenezer Hopkins, then Jacob Jennings"
+    }
+  ],
+  "childrenNote": "Nine children, per Clement (1877) pp. 106-108 and Prowell (1886) p. 674, cross-checked against wills and Haddonfield Meeting minutes.",
+  "childrenConfidence": "documented"
 };

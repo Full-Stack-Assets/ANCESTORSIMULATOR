@@ -1,0 +1,60 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #10151a;
+  color: #e8e6df;
+  font-family: Georgia, 'Times New Roman', serif;
+  display: flex;
+  justify-content: center;
+}
+
+#app {
+  position: relative;
+  width: 960px;
+  max-width: 100%;
+  margin: 24px auto;
+}
+
+canvas#stage {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #dce6ea;
+  border: 2px solid #3a4550;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+canvas#stage:focus-visible {
+  outline: 3px solid #f2c14e;
+  outline-offset: 2px;
+}
+
+#legend {
+  display: flex;
+  gap: 18px;
+  justify-content: center;
+  margin-top: 10px;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  color: #b7c2c9;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dot.documented { background: #3ba55c; }
+.dot.inferred   { background: #3b82c4; }
+.dot.legend     { background: #9b59b6; }

@@ -4,6 +4,7 @@
 
 import { JOSIAH } from './data/josiah.js';
 import { WILLIAM } from './data/william.js';
+import * as World from './world.js';
 
 // One entry per playable ancestor. Add a new chapter by running
 // tools/sync_ancestor.py for a reviewed ANC ancestor and adding it here.
@@ -32,6 +33,12 @@ const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
 const W = canvas.width;
 const H = canvas.height;
+const worldCanvas = document.getElementById('world');
+const canvasStack = document.getElementById('canvas-stack');
+
+let worldInitialized = false;
+let worldHudRunning = false;
+let promptFlash = 0; // small pulse timer for the "press E" prompt
 
 /** @type {{screen: string, chapter: object|null, chapterFocus: number, progress: number, activeIndex: number|null, focusIndex: number, buttons: Array}} */
 const state = {
@@ -44,20 +51,6 @@ const state = {
   buttons: [], // clickable rects for the current frame, hit-tested on click
 };
 
-function nodePositions(count) {
-  const marginX = 90;
-  const usableW = W - marginX * 2;
-  const midY = 250;
-  const amplitude = 90;
-  const positions = [];
-  for (let i = 0; i < count; i++) {
-    const t = count === 1 ? 0 : i / (count - 1);
-    const x = marginX + usableW * t;
-    const y = midY + Math.sin(t * Math.PI * 1.5) * amplitude;
-    positions.push({ x, y });
-  }
-  return positions;
-}
 
 function wrapText(text, maxWidth) {
   const words = text.split(/\s+/);
@@ -113,12 +106,94 @@ function clearStage() {
   ctx.fillRect(0, H - 90, W, 90);
 }
 
+// ---------------------------------------------------------------------
+// The open-world "map" screen. Rendering here is continuous (the player
+// walks in real time), unlike every other screen, which only re-renders on
+// input — see worldHudLoop().
+// ---------------------------------------------------------------------
+
+function enterWorld() {
+  if (!worldInitialized) {
+    World.initWorld(worldCanvas, canvas);
+    World.setOnArrive(() => {}); // reserved for future ambient cues; interaction is polled in the HUD loop
+    worldInitialized = true;
+  }
+  World.loadChapter(state.chapter, state.progress);
+  canvasStack.classList.add('world-active');
+  World.start();
+  worldHudRunning = true;
+  requestAnimationFrame(worldHudLoop);
+}
+
+function exitWorld() {
+  worldHudRunning = false;
+  World.stop();
+  canvasStack.classList.remove('world-active');
+}
+
+function worldHudLoop() {
+  if (!worldHudRunning) return;
+  drawWorldHud();
+  requestAnimationFrame(worldHudLoop);
+}
+
+function drawWorldHud() {
+  const ws = World.getWorldState();
+  const wp = state.chapter.waypoints[ws.interactable];
+  ctx.clearRect(0, 0, W, H);
+  state.buttons = [];
+
+  // compass, top center
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 13px Arial, sans-serif';
+  const heading = (((-ws.player.yaw * 180) / Math.PI) % 360 + 360) % 360;
+  ctx.fillStyle = 'rgba(20,26,32,0.75)';
+  roundRect(W / 2 - 90, 14, 180, 26, 6);
+  ctx.fill();
+  ctx.fillStyle = '#f2efe6';
+  ctx.fillText(`${state.chapter.name} — ${compassLabel(heading)}`, W / 2, 32);
+
+  if (wp) {
+    promptFlash += 0.08;
+    const pulse = 0.85 + Math.sin(promptFlash) * 0.15;
+    const label = `Press E to examine: ${wp.event}`;
+    ctx.font = 'bold 16px Georgia, serif';
+    const pw = ctx.measureText(label).width + 48;
+    const px = W / 2 - pw / 2, py = H - 76;
+    ctx.fillStyle = `rgba(242, 193, 78, ${pulse})`;
+    roundRect(px, py, pw, 42, 8);
+    ctx.fill();
+    ctx.fillStyle = '#1c2530';
+    ctx.fillText(label, W / 2, py + 27);
+    addButton(px, py, pw, 42, () => interactWithWorld());
+  } else {
+    ctx.font = 'italic 13px Georgia, serif';
+    ctx.fillStyle = 'rgba(28,37,48,0.85)';
+    ctx.fillText('Walk toward the glowing marker to continue the journey.', W / 2, H - 30);
+  }
+}
+
+function compassLabel(heading) {
+  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  return dirs[Math.round(heading / 45) % 8];
+}
+
+function interactWithWorld() {
+  const ws = World.getWorldState();
+  if (ws.interactable == null) return;
+  exitWorld();
+  state.activeIndex = ws.interactable;
+  state.screen = 'detail';
+  render();
+}
+
 function render() {
   state.buttons = [];
   clearStage();
   if (state.screen === 'archive') renderArchive();
   else if (state.screen === 'title') renderTitle();
-  else if (state.screen === 'map') renderMap();
+  // 'map' is the open world — see enterWorld()/worldHudLoop(), which draw
+  // continuously and are never driven through this event-triggered render().
   else if (state.screen === 'detail') renderDetail();
   else if (state.screen === 'family') renderFamily();
   else if (state.screen === 'end') renderEnd();
@@ -206,97 +281,15 @@ function renderTitle() {
   const by = Math.min(y + 20, H - bh - 24);
   addButton(W / 2 - bw / 2, by, bw, bh, () => {
     state.screen = 'map';
-    state.focusIndex = state.progress;
-    render();
+    enterWorld();
   });
   drawButton(W / 2 - bw / 2, by, bw, bh, 'Begin the Journey');
-}
-
-function renderMap() {
-  const JOSIAH = state.chapter;
-  const positions = nodePositions(JOSIAH.waypoints.length);
-
-  ctx.strokeStyle = '#8a7a55';
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  positions.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
-  ctx.stroke();
-
-  ctx.fillStyle = '#1c2530';
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 20px Georgia, serif';
-  ctx.fillText(`${JOSIAH.name} — the life`, W / 2, 40);
-  ctx.font = '13px Arial, sans-serif';
-  ctx.fillStyle = '#3a4550';
-  ctx.fillText(
-    'Click a stop along the path (or use ←/→ and Enter) to read what really happened there.',
-    W / 2,
-    62
-  );
-
-  JOSIAH.waypoints.forEach((wp, i) => {
-    const { x, y } = positions[i];
-    const reached = i <= state.progress;
-    const isCurrent = i === state.progress;
-    const color = reached ? CONFIDENCE_COLOR[wp.confidence] : '#9aa3a8';
-
-    if (isCurrent) {
-      ctx.beginPath();
-      ctx.arc(x, y, 34, 0, Math.PI * 2);
-      ctx.strokeStyle = '#f2c14e';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-    }
-
-    if (i === state.focusIndex) {
-      ctx.beginPath();
-      ctx.arc(x, y, 40, 0, Math.PI * 2);
-      ctx.setLineDash([4, 4]);
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
-    ctx.beginPath();
-    ctx.arc(x, y, 26, 0, Math.PI * 2);
-    ctx.fillStyle = reached ? color : '#c9cfd2';
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#1c2530';
-    ctx.stroke();
-
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 18px Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(reached ? CONFIDENCE_ICON[wp.confidence] : '•', x, y + 1);
-
-    ctx.fillStyle = '#1c2530';
-    ctx.font = '12px Arial, sans-serif';
-    ctx.textBaseline = 'alphabetic';
-    const label = wp.year ? String(wp.year) : '';
-    ctx.fillText(label, x, y + 50);
-    ctx.font = 'bold 12px Arial, sans-serif';
-    ctx.fillText(wp.event, x, y - 40);
-
-    if (reached) {
-      addButton(x - 30, y - 30, 60, 60, () => {
-        state.activeIndex = i;
-        state.screen = 'detail';
-        render();
-      });
-    }
-  });
 }
 
 function renderDetail() {
   const JOSIAH = state.chapter;
   const i = state.activeIndex;
   const wp = JOSIAH.waypoints[i];
-
-  // dim the map behind the panel
-  renderMapBackdrop();
 
   const px = 60, py = 70, pw = W - 120, ph = H - 140;
   ctx.fillStyle = 'rgba(20, 26, 32, 0.94)';
@@ -350,25 +343,25 @@ function renderDetail() {
     addButton(bx, by, bw, bh, () => {
       if (isLast) {
         state.screen = 'family';
+        render();
       } else {
         state.progress = Math.min(state.progress + 1, JOSIAH.waypoints.length - 1);
         state.focusIndex = state.progress;
         state.screen = 'map';
+        enterWorld();
       }
-      render();
     });
   } else {
     drawButton(bx, by, bw, bh, 'Close', false);
     addButton(bx, by, bw, bh, () => {
       state.screen = 'map';
-      render();
+      enterWorld();
     });
   }
 }
 
 function renderFamily() {
   const JOSIAH = state.chapter;
-  renderMapBackdrop();
 
   const px = 60, py = 50, pw = W - 120, ph = H - 100;
   ctx.fillStyle = 'rgba(20, 26, 32, 0.96)';
@@ -466,13 +459,6 @@ function renderFamily() {
   });
 }
 
-function renderMapBackdrop() {
-  const savedButtons = state.buttons;
-  state.buttons = [];
-  renderMap();
-  state.buttons = savedButtons;
-}
-
 function renderEnd() {
   const JOSIAH = state.chapter;
   ctx.textAlign = 'center';
@@ -525,7 +511,16 @@ window.__ANC_DEBUG_STATE__ = () => ({
   focusIndex: state.focusIndex,
   chapterFocus: state.chapterFocus,
   buttons: state.buttons.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h })),
+  world: state.screen === 'map' && worldInitialized ? World.getWorldState() : null,
 });
+
+// test-only: the smoke test can't literally walk a compressed ocean, so it
+// warps directly to interact range and presses "interact" — see
+// World.debugWarpTo's own doc comment. Never used by real play.
+window.__ANC_DEBUG__ = {
+  warpToWaypoint: (index) => World.debugWarpTo(index),
+  interact: () => interactWithWorld(),
+};
 
 canvas.tabIndex = 0; // make the canvas keyboard-focusable
 canvas.addEventListener('click', (evt) => {
@@ -564,17 +559,12 @@ window.addEventListener('keydown', (evt) => {
       if (state.buttons[state.chapterFocus]) state.buttons[state.chapterFocus].onClick();
     }
   } else if (state.screen === 'map') {
-    if (evt.key === 'ArrowLeft') {
-      state.focusIndex = Math.max(0, state.focusIndex - 1);
-      render();
-    } else if (evt.key === 'ArrowRight') {
-      state.focusIndex = Math.min(state.progress, state.focusIndex + 1);
-      render();
-    } else if (evt.key === 'Enter' || evt.key === ' ') {
+    // WASD / arrow-key movement and mouse-drag look are handled inside
+    // world.js's own listeners; this is only the "examine" action, and only
+    // once the player has actually walked into range (see drawWorldHud()).
+    if (evt.key.toLowerCase() === 'e' || evt.key === 'Enter' || evt.key === ' ') {
       evt.preventDefault();
-      state.activeIndex = state.focusIndex;
-      state.screen = 'detail';
-      render();
+      interactWithWorld();
     }
   } else if (evt.key === 'Enter' || evt.key === ' ') {
     evt.preventDefault();

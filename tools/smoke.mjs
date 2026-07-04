@@ -1,10 +1,12 @@
 // Smoke-test driver for the Ancestor Journey web game.
 // Launches the game in real Chromium (via Playwright), selects each chapter
-// from the archive and clicks through it end to end using REAL mouse events
-// at the game's own reported button positions (window.__ANC_DEBUG_STATE__ —
-// exposed by src/main.js for exactly this purpose), and saves a screenshot
-// at every stage. Fails loudly on any console error or a click that finds
-// no matching button.
+// from the archive and plays it end to end — mouse for the 2D screens
+// (archive/title/detail/family/end), and for the open-world "map" screen,
+// window.__ANC_DEBUG__.warpToWaypoint()/interact() to reach each waypoint
+// without literally walking a compressed ocean (see world.js's
+// debugWarpTo() doc comment — real play always reaches these by walking;
+// this is a test-only shortcut). Saves a screenshot at every stage. Fails
+// loudly on any console error or a click that finds no matching button.
 //
 // Usage (serve the repo root first, e.g. `npm run serve`):
 //   node tools/smoke.mjs http://127.0.0.1:8917 /tmp/anc-shots
@@ -58,12 +60,31 @@ async function main() {
   await shot(page, '99-keyboard-select-title');
 
   await page.keyboard.press('Enter'); // Begin the Journey
-  await page.waitForTimeout(150);
+  await page.waitForTimeout(300);
   await assertScreen(page, 'map');
-  await page.keyboard.press('Enter'); // open the focused (only reachable) node
+
+  // Real keyboard movement in the open world (not the debug warp): hold "w"
+  // for a beat and confirm the player actually moved, proving WASD drives
+  // the Three.js player controller and not just the debug shortcut.
+  const before = (await debugState(page)).world.player;
+  await page.keyboard.down('w');
+  await page.waitForTimeout(500);
+  await page.keyboard.up('w');
+  await page.waitForTimeout(100);
+  const afterWalk = (await debugState(page)).world.player;
+  const moved = Math.hypot(afterWalk.x - before.x, afterWalk.z - before.z);
+  if (moved < 0.5) throw new Error(`holding "w" did not move the player (moved ${moved.toFixed(2)} units)`);
+  console.log(`[keyboard] walked ${moved.toFixed(2)} units via real WASD input`);
+  await shot(page, '99-keyboard-world-walked');
+
+  // Reach a waypoint deterministically (see the mouse pass above for why)
+  // and confirm "e" opens it.
+  await page.evaluate(() => window.__ANC_DEBUG__.warpToWaypoint(0));
+  await page.waitForTimeout(200);
+  await page.keyboard.press('e');
   await page.waitForTimeout(150);
   const kbDetail = await debugState(page);
-  if (kbDetail.screen !== 'detail') throw new Error(`keyboard Enter on map did not open detail (screen=${kbDetail.screen})`);
+  if (kbDetail.screen !== 'detail') throw new Error(`keyboard "e" at a waypoint did not open detail (screen=${kbDetail.screen})`);
   await shot(page, '99-keyboard-detail');
 
   await browser.close();
@@ -88,25 +109,32 @@ async function playChapterByMouse(page, index, prefix) {
   await shot(page, `${prefix}-01-title`);
 
   await clickFirstButton(page); // Begin the Journey
-  await page.waitForTimeout(200);
-  await shot(page, `${prefix}-02-map`);
+  await page.waitForTimeout(300); // let the Three.js scene finish its first frame
+  await shot(page, `${prefix}-02-world`);
   await assertScreen(page, 'map');
 
   const mapState = await debugState(page);
   const waypointCount = mapState.waypointCount;
   console.log(`[${prefix}] chapter=${chapterId} waypoints=${waypointCount}`);
   if (!waypointCount || waypointCount < 1) throw new Error(`chapter ${chapterId} reports ${waypointCount} waypoints`);
+  if (!mapState.world) throw new Error(`[${prefix}] map screen reports no world state`);
 
   for (let i = 0; i < waypointCount; i++) {
-    await clickButtonAt(page, i);
+    await page.evaluate((idx) => window.__ANC_DEBUG__.warpToWaypoint(idx), i);
+    await page.waitForTimeout(200); // one render tick to register proximity
+    const approached = await debugState(page);
+    if (!approached.world || approached.world.interactable !== i) {
+      throw new Error(`[${prefix}] warping to waypoint ${i} did not register as interactable (world=${JSON.stringify(approached.world)})`);
+    }
+    await page.evaluate(() => window.__ANC_DEBUG__.interact());
     await page.waitForTimeout(150);
     const afterOpen = await debugState(page);
     if (afterOpen.screen !== 'detail') {
-      throw new Error(`[${prefix}] clicking node ${i} did not open detail (screen=${afterOpen.screen})`);
+      throw new Error(`[${prefix}] interacting with waypoint ${i} did not open detail (screen=${afterOpen.screen})`);
     }
     await shot(page, `${prefix}-03-detail-${i}`);
     await clickFirstButton(page); // Continue / Close / (last node) Family & Legacy
-    await page.waitForTimeout(150);
+    await page.waitForTimeout(250); // re-entering the world reloads the Three.js scene
   }
 
   await shot(page, `${prefix}-04-family`);

@@ -17,15 +17,39 @@ html, body {
   margin: 24px auto;
 }
 
-canvas#stage {
+#canvas-stack {
+  position: relative;
   width: 100%;
-  height: auto;
-  display: block;
-  background: #dce6ea;
   border: 2px solid #3a4550;
   border-radius: 6px;
+  overflow: hidden;
+}
+
+canvas#world,
+canvas#stage {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+canvas#world {
+  position: absolute;
+  inset: 0;
+  display: none; /* shown only while the 'map' (open-world) screen is active */
+}
+
+canvas#stage {
+  position: relative;
+  background: #dce6ea;
   cursor: pointer;
 }
+
+#canvas-stack.world-active canvas#stage {
+  background: transparent;
+  cursor: grab;
+}
+#canvas-stack.world-active canvas#stage:active { cursor: grabbing; }
+#canvas-stack.world-active canvas#world { display: block; }
 
 canvas#stage:focus-visible {
   outline: 3px solid #f2c14e;
@@ -34,12 +58,18 @@ canvas#stage:focus-visible {
 
 #legend {
   display: flex;
-  gap: 18px;
+  flex-wrap: wrap;
+  gap: 8px 18px;
   justify-content: center;
   margin-top: 10px;
   font-family: Arial, sans-serif;
   font-size: 13px;
   color: #b7c2c9;
+}
+
+.legend-controls {
+  color: #8b9399;
+  font-style: italic;
 }
 
 .legend-item {

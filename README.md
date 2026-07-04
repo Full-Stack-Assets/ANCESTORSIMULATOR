@@ -15,13 +15,41 @@ playable ancestors:
 - **Josiah Albertson** (c. 1706–1783), his son: a shoemaker who never left
   the fifteen miles his father settled, six life stops, nine children.
 
-Pick a chapter, walk it stop-by-stop, and every stop shows a **confidence
-badge** — Documented / Inferred / Legend — pulled straight from the source
-record, so invented texture is never presented as fact. Each chapter ends
-with a Family & Legacy screen (occupation, marriage, children with real
-sourced fates) before returning you to the archive to pick the next one.
+Pick a chapter and you land in a real, walkable **3D open world** built from
+that ancestor's own waypoints (see "The open world" below) — walk up to each
+stop and every one shows a **confidence badge** — Documented / Inferred /
+Legend — pulled straight from the source record, so invented texture is
+never presented as fact. Each chapter ends with a Family & Legacy screen
+(occupation, marriage, children with real sourced fates) before returning
+you to the archive to pick the next one.
 
-No build step, no framework: plain HTML5 canvas and vanilla JS.
+No build step, no framework: plain HTML5 canvas + Three.js (loaded via an
+import map, no bundler) and vanilla JS.
+
+## The open world
+
+The "map" screen is a real 3D space, not a 2D path diagram. Three.js renders
+a WebGL canvas (`#world`) stacked behind the existing 2D UI canvas
+(`#stage`); the 2D canvas still draws the HUD (compass, "press E to
+examine" prompt) and every non-map screen exactly as before.
+
+- **Movement**: WASD/arrow keys walk and turn, drag the mouse to look
+  around. There's no Pointer Lock — mouse-drag-to-look was chosen instead so
+  the controls stay scriptable/testable in headless Chromium.
+- **Waypoints** are placed by `src/geo.js`, which turns each stop's real
+  lat/lng into a local position: it keeps the true bearing between
+  consecutive stops but compresses the true distance on a log curve, so a
+  transatlantic crossing (William, ~5,000 km) and a fifteen-mile colonial
+  life (Josiah) are both walkable in a few minutes without one being a speck
+  and the other unplayably vast. The compression is a staging choice for
+  playability, not a claim about geography — the real lat/lng still live in
+  the waypoint data. When a life revisits an earlier stop's exact
+  coordinates (this happens — see William's return to Byberry), `geo.js`
+  nudges the repeat stop to a nearby distinct spot so it stays reachable as
+  its own marker rather than overlapping the earlier one.
+- Only stops you've reached (plus the current frontier stop, marked with a
+  glowing ring) are visible and walkable-to; walking within range of one and
+  pressing **E** (or Enter/Space) opens its detail screen, same as before.
 
 ## Run it
 
@@ -37,9 +65,14 @@ Then open `http://127.0.0.1:8917/index.html` in a browser (or just open
 
 The primary agent-facing way to confirm the game actually works: a Playwright
 driver that launches real Chromium, selects each chapter from the archive,
-plays it end to end (mouse), and separately drives a chapter-select +
-one node entirely by keyboard — all using the game's own reported state
-(`window.__ANC_DEBUG_STATE__`) rather than guessed pixel coordinates.
+plays it end to end (mouse), and separately drives a chapter-select + one
+node entirely by keyboard — all using the game's own reported state
+(`window.__ANC_DEBUG_STATE__`) rather than guessed pixel coordinates. In the
+open world it also confirms real WASD input actually moves the player (not
+just the debug shortcut below), then uses
+`window.__ANC_DEBUG__.warpToWaypoint(index)`/`interact()` — a test-only
+shortcut documented in `world.js`'s `debugWarpTo()` — to reach every
+waypoint without literally walking a compressed ocean for each one.
 
 ```sh
 npm run serve &                                   # start the static server
@@ -99,9 +132,11 @@ ancestor if their `manual.notes` has that kind of material worth surfacing.
 ## Project structure
 
 ```
-index.html            entry point, canvas + confidence legend
-src/style.css          page chrome (not game rendering — that's all canvas)
-src/main.js            archive + game state machine + canvas rendering + input handling
+index.html            entry point, canvas stack (2D #stage over WebGL #world) + confidence legend
+src/style.css          page chrome (not game rendering — that's canvas/WebGL)
+src/main.js            archive + game state machine + 2D canvas rendering + input handling
+src/world.js            the 3D open world: Three.js scene, player controller, waypoint markers
+src/geo.js              real lat/lng -> walkable local layout (distance compression, collision nudge)
 src/data/josiah.js      generated ancestor data (see Data pipeline above)
 src/data/william.js     generated ancestor data
 tools/sync_ancestor.py  ANC -> game data generator

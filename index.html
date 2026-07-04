@@ -3,16 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ancestor Journey — Josiah Albertson</title>
+<title>Ancestor Journey</title>
 <link rel="stylesheet" href="src/style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./node_modules/three/build/three.module.js"
+  }
+}
+</script>
 </head>
 <body>
   <div id="app">
-    <canvas id="stage" width="960" height="540" aria-label="Ancestor journey map"></canvas>
+    <div id="canvas-stack">
+      <canvas id="world" width="960" height="540" aria-hidden="true"></canvas>
+      <canvas id="stage" width="960" height="540" aria-label="Ancestor journey"></canvas>
+    </div>
     <div id="legend">
       <span class="legend-item"><i class="dot documented"></i> Documented</span>
       <span class="legend-item"><i class="dot inferred"></i> Inferred</span>
       <span class="legend-item"><i class="dot legend"></i> Legend</span>
+      <span class="legend-item legend-controls">In the open world: <b>WASD</b>/arrows to walk &amp; turn, drag mouse to look</span>
     </div>
   </div>
   <script type="module" src="src/main.js"></script>

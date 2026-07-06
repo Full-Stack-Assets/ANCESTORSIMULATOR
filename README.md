@@ -74,7 +74,11 @@ just the debug shortcut below), then uses
 shortcut documented in `world.js`'s `debugWarpTo()` — to reach every
 waypoint without literally walking a compressed ocean for each one.
 
+Debug hooks are only exposed when the page is loaded with `?debug=1` (the
+smoke test does this automatically).
+
 ```sh
+npx playwright install chromium   # first time only — downloads the browser
 npm run serve &                                   # start the static server
 npm run smoke -- http://127.0.0.1:8917 /tmp/shots  # drive it, save screenshots
 ```
@@ -86,9 +90,29 @@ This harness has already caught two real bugs, not hypothetical ones:
 adding William's (longer) bio exposed a title-screen layout bug where a long
 enough summary pushed the "Begin the Journey" button off the bottom of the
 canvas entirely (fixed by capping summary lines and clamping the button
-position — see `renderTitle`/`renderEnd` in `src/main.js`), and the data
+position — see `renderTitle`/`renderEnd` in `src/screens/`), and the data
 sync script was pulling William's _disproven_ 1697 marriage date from the
 raw person record instead of the journey's corrected 1693 waypoint.
+
+## Development
+
+```sh
+npm install
+npm run test          # Vitest unit tests (geo.js projection)
+npm run test:py       # Python unittest (sync_ancestor.py helpers)
+npm run lint          # ESLint (JS) + Ruff (Python)
+npm run format        # Prettier (auto-fix)
+npm run format:check  # Prettier (check only, used in CI)
+```
+
+CI runs on every push/PR to `main` via GitHub Actions (`.github/workflows/ci.yml`):
+lint, format check, unit tests, and the full Playwright smoke test.
+
+For local development with debug hooks (warp shortcuts, state inspector):
+
+```
+http://127.0.0.1:8917/index.html?debug=1
+```
 
 ## Data pipeline
 
@@ -125,22 +149,29 @@ ancestor if their `manual.notes` has that kind of material worth surfacing.
    `content_readiness`/`readiness_score` field per ancestor if you want to
    check before investing more research time.)
 2. Run `sync_ancestor.py` for their id/slug.
-3. Import the new data module in `src/main.js` and add it to the `CHAPTERS`
-   array — that's the entire integration, the archive screen and game loop
-   are already generic.
+3. Add an entry to `CHAPTER_MANIFEST` in `src/data/index.js` (and export the
+   new module there) — that's the entire integration, the archive screen and
+   game loop are already generic.
 
 ## Project structure
 
 ```
-index.html            entry point, canvas stack (2D #stage over WebGL #world) + confidence legend
-src/style.css          page chrome (not game rendering — that's canvas/WebGL)
-src/main.js            archive + game state machine + 2D canvas rendering + input handling
+index.html              entry point, canvas stack + confidence legend + CSP
+src/style.css           page chrome (not game rendering — that's canvas/WebGL)
+src/main.js             game state machine, input routing, screen transitions
+src/screens/            per-screen 2D canvas renderers (archive, title, detail, …)
+src/ui/canvas.js        shared 2D drawing helpers (buttons, text wrap, backdrop)
+src/confidence.js       shared Documented/Inferred/Legend palette (2D + 3D)
+src/types.js            JSDoc typedefs for chapter/waypoint data shape
 src/world.js            the 3D open world: Three.js scene, player controller, waypoint markers
 src/geo.js              real lat/lng -> walkable local layout (distance compression, collision nudge)
+src/data/index.js       chapter manifest + CHAPTERS array (integration point for new ancestors)
 src/data/josiah.js      generated ancestor data (see Data pipeline above)
 src/data/william.js     generated ancestor data
 tools/sync_ancestor.py  ANC -> game data generator
 tools/smoke.mjs         Playwright e2e driver / smoke test
+tools/tests/            Python unit tests for the sync script
+.github/workflows/ci.yml  lint + unit tests + smoke on every PR
 ```
 
 ## Where this is headed

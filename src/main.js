@@ -153,6 +153,8 @@ function drawWorldHud() {
   ctx.fillStyle = '#f2efe6';
   ctx.fillText(`${state.chapter.name} — ${compassLabel(heading)}`, W / 2, 32);
 
+  drawMinimap(World.getMarkerLayout());
+
   if (wp) {
     promptFlash += 0.08;
     const pulse = 0.85 + Math.sin(promptFlash) * 0.15;
@@ -171,6 +173,64 @@ function drawWorldHud() {
     ctx.fillStyle = 'rgba(28,37,48,0.85)';
     ctx.fillText('Walk toward the glowing marker to continue the journey.', W / 2, H - 30);
   }
+}
+
+// Small top-right inset showing every reached/frontier waypoint relative to
+// the player, plus a heading arrow — the walking-game equivalent of the
+// radar/minimap HUD element every open-world reference build has.
+const MINIMAP_SIZE = 128;
+const MINIMAP_MARGIN = 14;
+
+function drawMinimap(layout) {
+  const size = MINIMAP_SIZE;
+  const mx = W - size - MINIMAP_MARGIN;
+  const my = MINIMAP_MARGIN;
+  const scale = (size / 2 - 12) / Math.max(60, layout.extent);
+  const cx = mx + size / 2;
+  const cy = my + size / 2;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(20,26,32,0.75)';
+  roundRect(mx, my, size, size, 8);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(242,239,230,0.35)';
+  ctx.lineWidth = 1;
+  roundRect(mx, my, size, size, 8);
+  ctx.stroke();
+
+  ctx.beginPath();
+  roundRect(mx, my, size, size, 8);
+  ctx.clip();
+
+  // World-space to minimap-space: player always stays centered so the map
+  // reads as "what's around me" rather than needing the player located.
+  const toMap = (x, z) => ({
+    mx: cx + (x - layout.player.x) * scale,
+    my: cy + (z - layout.player.z) * scale,
+  });
+
+  for (const m of layout.markers) {
+    if (!m.reached && !m.isFrontier) continue;
+    const p = toMap(m.x, m.z);
+    ctx.beginPath();
+    ctx.arc(p.mx, p.my, m.isFrontier ? 4.5 : 3, 0, Math.PI * 2);
+    ctx.fillStyle = m.isFrontier ? '#f2c14e' : '#8fd0a0';
+    ctx.fill();
+  }
+
+  // Player as a heading arrow, always at the map's center. Forward in world
+  // space is (-sin(yaw), -cos(yaw)) in (x,z) (see world.js's step()); negate
+  // yaw here so the arrow rotates the same direction the player turns.
+  ctx.translate(cx, cy);
+  ctx.rotate(-layout.player.yaw);
+  ctx.beginPath();
+  ctx.moveTo(0, -7);
+  ctx.lineTo(5, 6);
+  ctx.lineTo(-5, 6);
+  ctx.closePath();
+  ctx.fillStyle = '#e8534a';
+  ctx.fill();
+  ctx.restore();
 }
 
 function compassLabel(heading) {

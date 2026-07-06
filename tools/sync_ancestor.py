@@ -145,8 +145,15 @@ def main() -> int:
     args = ap.parse_args()
 
     anc = Path(args.anc)
-    person = json.loads((anc / "data" / "people" / f"{args.id}.json").read_text())
-    journey = json.loads((anc / "data" / "journeys" / f"{args.id}.json").read_text())
+    person_path = anc / "data" / "people" / f"{args.id}.json"
+    journey_path = anc / "data" / "journeys" / f"{args.id}.json"
+    if not person_path.exists():
+        raise FileNotFoundError(f"person record not found: {person_path}")
+    if not journey_path.exists():
+        raise FileNotFoundError(f"journey record not found: {journey_path}")
+
+    person = json.loads(person_path.read_text(encoding="utf-8"))
+    journey = json.loads(journey_path.read_text(encoding="utf-8"))
 
     # Prefer the reviewed journey's own birth/death waypoints over the raw machine
     # vitals: the journey carries corrections (e.g. a birth year the research

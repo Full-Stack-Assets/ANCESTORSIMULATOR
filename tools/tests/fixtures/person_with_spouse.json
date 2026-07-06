@@ -1,0 +1,13 @@
+{
+  "id": "I999",
+  "name": {"full": "Test Ancestor"},
+  "vitals": {},
+  "relationships": {
+    "spouses": [
+      {
+        "id": "I998",
+        "marriage": {"date": {"year": 1700}, "place": {"raw": "Old Place"}}
+      }
+    ]
+  }
+}

@@ -30,14 +30,15 @@ async function main() {
   });
   page.on('pageerror', (err) => errors.push(String(err)));
 
-  await page.goto(`${BASE_URL}/index.html`);
+  await page.goto(`${BASE_URL}/index.html?debug=1`);
   await page.waitForTimeout(300);
   await shot(page, '00-archive');
   await assertScreen(page, 'archive');
 
   const archiveState = await debugState(page);
   console.log('chapters available:', archiveState.chapterCount);
-  if (archiveState.chapterCount < 2) throw new Error(`expected >=2 chapters, got ${archiveState.chapterCount}`);
+  if (archiveState.chapterCount < 2)
+    throw new Error(`expected >=2 chapters, got ${archiveState.chapterCount}`);
 
   // Play every chapter by mouse, in order, verifying it returns to the
   // archive with the RIGHT chapter's data each time (not stale state from
@@ -52,11 +53,13 @@ async function main() {
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(100);
   const kbArchive = await debugState(page);
-  if (kbArchive.chapterFocus !== 1) throw new Error(`ArrowRight did not move chapterFocus to 1 (got ${kbArchive.chapterFocus})`);
+  if (kbArchive.chapterFocus !== 1)
+    throw new Error(`ArrowRight did not move chapterFocus to 1 (got ${kbArchive.chapterFocus})`);
   await page.keyboard.press('Enter');
   await page.waitForTimeout(150);
   const afterKbSelect = await debugState(page);
-  if (afterKbSelect.screen !== 'title') throw new Error(`keyboard chapter select did not reach title (screen=${afterKbSelect.screen})`);
+  if (afterKbSelect.screen !== 'title')
+    throw new Error(`keyboard chapter select did not reach title (screen=${afterKbSelect.screen})`);
   await shot(page, '99-keyboard-select-title');
 
   await page.keyboard.press('Enter'); // Begin the Journey
@@ -73,7 +76,8 @@ async function main() {
   await page.waitForTimeout(100);
   const afterWalk = (await debugState(page)).world.player;
   const moved = Math.hypot(afterWalk.x - before.x, afterWalk.z - before.z);
-  if (moved < 0.5) throw new Error(`holding "w" did not move the player (moved ${moved.toFixed(2)} units)`);
+  if (moved < 0.5)
+    throw new Error(`holding "w" did not move the player (moved ${moved.toFixed(2)} units)`);
   console.log(`[keyboard] walked ${moved.toFixed(2)} units via real WASD input`);
   await shot(page, '99-keyboard-world-walked');
 
@@ -84,7 +88,8 @@ async function main() {
   await page.keyboard.press('e');
   await page.waitForTimeout(150);
   const kbDetail = await debugState(page);
-  if (kbDetail.screen !== 'detail') throw new Error(`keyboard "e" at a waypoint did not open detail (screen=${kbDetail.screen})`);
+  if (kbDetail.screen !== 'detail')
+    throw new Error(`keyboard "e" at a waypoint did not open detail (screen=${kbDetail.screen})`);
   await shot(page, '99-keyboard-detail');
 
   await browser.close();
@@ -104,7 +109,10 @@ async function playChapterByMouse(page, index, prefix) {
   await clickButtonAt(page, index);
   await page.waitForTimeout(200);
   const afterSelect = await debugState(page);
-  if (afterSelect.screen !== 'title') throw new Error(`selecting chapter ${index} did not reach title (screen=${afterSelect.screen})`);
+  if (afterSelect.screen !== 'title')
+    throw new Error(
+      `selecting chapter ${index} did not reach title (screen=${afterSelect.screen})`
+    );
   const chapterId = afterSelect.chapterId;
   await shot(page, `${prefix}-01-title`);
 
@@ -116,7 +124,8 @@ async function playChapterByMouse(page, index, prefix) {
   const mapState = await debugState(page);
   const waypointCount = mapState.waypointCount;
   console.log(`[${prefix}] chapter=${chapterId} waypoints=${waypointCount}`);
-  if (!waypointCount || waypointCount < 1) throw new Error(`chapter ${chapterId} reports ${waypointCount} waypoints`);
+  if (!waypointCount || waypointCount < 1)
+    throw new Error(`chapter ${chapterId} reports ${waypointCount} waypoints`);
   if (!mapState.world) throw new Error(`[${prefix}] map screen reports no world state`);
 
   for (let i = 0; i < waypointCount; i++) {
@@ -124,13 +133,17 @@ async function playChapterByMouse(page, index, prefix) {
     await page.waitForTimeout(200); // one render tick to register proximity
     const approached = await debugState(page);
     if (!approached.world || approached.world.interactable !== i) {
-      throw new Error(`[${prefix}] warping to waypoint ${i} did not register as interactable (world=${JSON.stringify(approached.world)})`);
+      throw new Error(
+        `[${prefix}] warping to waypoint ${i} did not register as interactable (world=${JSON.stringify(approached.world)})`
+      );
     }
     await page.evaluate(() => window.__ANC_DEBUG__.interact());
     await page.waitForTimeout(150);
     const afterOpen = await debugState(page);
     if (afterOpen.screen !== 'detail') {
-      throw new Error(`[${prefix}] interacting with waypoint ${i} did not open detail (screen=${afterOpen.screen})`);
+      throw new Error(
+        `[${prefix}] interacting with waypoint ${i} did not open detail (screen=${afterOpen.screen})`
+      );
     }
     await shot(page, `${prefix}-03-detail-${i}`);
     await clickFirstButton(page); // Continue / Close / (last node) Family & Legacy
@@ -170,7 +183,10 @@ async function assertScreen(page, expected) {
 async function clickButtonAt(page, index) {
   const s = await debugState(page);
   const btn = s.buttons[index];
-  if (!btn) throw new Error(`no button at index ${index} (screen=${s.screen}, buttons=${s.buttons.length})`);
+  if (!btn)
+    throw new Error(
+      `no button at index ${index} (screen=${s.screen}, buttons=${s.buttons.length})`
+    );
   await clickCanvasRect(page, btn);
 }
 

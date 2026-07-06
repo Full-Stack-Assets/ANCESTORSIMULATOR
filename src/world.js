@@ -5,12 +5,7 @@
 
 import * as THREE from 'three';
 import { projectWaypoints } from './geo.js';
-
-const CONFIDENCE_COLOR = {
-  documented: 0x3ba55c,
-  inferred: 0x3b82c4,
-  legend: 0x9b59b6,
-};
+import { confidenceHex } from './confidence.js';
 
 const PLAYER_SPEED = 5.2; // units/sec, roughly a brisk walk (1 unit = 1 m)
 const TURN_SPEED = 2.0; // rad/sec from keyboard
@@ -40,14 +35,22 @@ export function initWorld(renderCanvas, inputCanvas) {
   canvasEl = renderCanvas;
   renderer = new THREE.WebGLRenderer({ canvas: renderCanvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setSize(renderCanvas.clientWidth || renderCanvas.width, renderCanvas.clientHeight || renderCanvas.height, false);
+  renderer.setSize(
+    renderCanvas.clientWidth || renderCanvas.width,
+    renderCanvas.clientHeight || renderCanvas.height,
+    false
+  );
 
   camera = new THREE.PerspectiveCamera(68, aspect(), 0.1, 3000);
   scene = new THREE.Scene();
   clock = new THREE.Clock();
 
-  window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
-  window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+  window.addEventListener('keydown', (e) => {
+    keys[e.key.toLowerCase()] = true;
+  });
+  window.addEventListener('keyup', (e) => {
+    keys[e.key.toLowerCase()] = false;
+  });
 
   inputCanvas.addEventListener('mousedown', (e) => {
     if (!running) return;
@@ -60,7 +63,10 @@ export function initWorld(renderCanvas, inputCanvas) {
     player.yaw = dragState.yaw - dx * 0.0035;
     player.pitch = clamp(dragState.pitch - dy * 0.0035, -1.1, 1.1);
   });
-  window.addEventListener('mouseup', () => { dragState = null; });
+  window.addEventListener('mouseup', () => {
+    dragState = null;
+  });
+  window.addEventListener('resize', resize);
 
   renderer.setAnimationLoop(() => {
     if (!running) return;
@@ -77,7 +83,11 @@ function aspect() {
 
 export function resize() {
   if (!renderer) return;
-  renderer.setSize(canvasEl.clientWidth || canvasEl.width, canvasEl.clientHeight || canvasEl.height, false);
+  renderer.setSize(
+    canvasEl.clientWidth || canvasEl.width,
+    canvasEl.clientHeight || canvasEl.height,
+    false
+  );
   camera.aspect = aspect();
   camera.updateProjectionMatrix();
 }
@@ -139,8 +149,8 @@ function buildGround(extent) {
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
     const z = pos.getZ(i);
-    const bump = Math.sin(x * 0.012) * Math.cos(z * 0.012) * 2.4
-      + Math.sin(x * 0.05 + z * 0.03) * 0.6;
+    const bump =
+      Math.sin(x * 0.012) * Math.cos(z * 0.012) * 2.4 + Math.sin(x * 0.05 + z * 0.03) * 0.6;
     pos.setY(i, bump);
   }
   geo.computeVertexNormals();
@@ -152,17 +162,27 @@ function buildMarker(wp, visible, isFrontier) {
   const group = new THREE.Group();
   group.visible = visible;
 
-  const color = CONFIDENCE_COLOR[wp.confidence] || 0x999999;
+  const color = confidenceHex(wp.confidence);
   const pole = new THREE.Mesh(
     new THREE.CylinderGeometry(0.35, 0.5, 6, 10),
-    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.35, roughness: 0.5 })
+    new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 0.35,
+      roughness: 0.5,
+    })
   );
   pole.position.y = 3;
   group.add(pole);
 
   const head = new THREE.Mesh(
     new THREE.SphereGeometry(1.15, 16, 16),
-    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.7, roughness: 0.35 })
+    new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 0.7,
+      roughness: 0.35,
+    })
   );
   head.position.y = 6.4;
   group.add(head);
@@ -170,7 +190,12 @@ function buildMarker(wp, visible, isFrontier) {
   if (isFrontier) {
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(2.6, 3.1, 32),
-      new THREE.MeshBasicMaterial({ color: 0xf2c14e, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+      new THREE.MeshBasicMaterial({
+        color: 0xf2c14e,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.85,
+      })
     );
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.05;
@@ -216,8 +241,10 @@ function step(dt) {
   const strafe = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
   if (forward || strafe) {
     const mag = Math.hypot(forward, strafe) || 1;
-    const fx = -Math.sin(player.yaw) * forward, fz = -Math.cos(player.yaw) * forward;
-    const sx = Math.cos(player.yaw) * strafe, sz = -Math.sin(player.yaw) * strafe;
+    const fx = -Math.sin(player.yaw) * forward,
+      fz = -Math.cos(player.yaw) * forward;
+    const sx = Math.cos(player.yaw) * strafe,
+      sz = -Math.sin(player.yaw) * strafe;
     player.x += ((fx + sx) / mag) * PLAYER_SPEED * dt;
     player.z += ((fz + sz) / mag) * PLAYER_SPEED * dt;
   }
@@ -256,11 +283,21 @@ function groundHeightAt(x, z) {
   return Math.sin(x * 0.012) * Math.cos(z * 0.012) * 2.4 + Math.sin(x * 0.05 + z * 0.03) * 0.6;
 }
 
-function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
 
-export function setOnArrive(fn) { onArrive = fn; }
-export function start() { running = true; clock.getDelta(); }
-export function stop() { running = false; keys = Object.create(null); }
+export function setOnArrive(fn) {
+  onArrive = fn;
+}
+export function start() {
+  running = true;
+  clock.getDelta();
+}
+export function stop() {
+  running = false;
+  keys = Object.create(null);
+}
 
 export function getWorldState() {
   return {
@@ -286,4 +323,6 @@ export function debugWarpTo(index = frontierIndex) {
   player.yaw = angle + Math.PI;
 }
 
-function round2(n) { return Math.round(n * 100) / 100; }
+function round2(n) {
+  return Math.round(n * 100) / 100;
+}

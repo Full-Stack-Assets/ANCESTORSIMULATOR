@@ -18,7 +18,7 @@
 
 const KM_PER_DEG_LAT = 110.574;
 function kmPerDegLng(latDeg) {
-  return 111.320 * Math.cos((latDeg * Math.PI) / 180);
+  return 111.32 * Math.cos((latDeg * Math.PI) / 180);
 }
 
 const LOCAL_CAP_KM = 0.15; // up to 150 m of real travel renders 1:1 (1 unit = 1 m)

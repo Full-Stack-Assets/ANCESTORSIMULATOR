@@ -87,7 +87,7 @@ adding William's (longer) bio exposed a title-screen layout bug where a long
 enough summary pushed the "Begin the Journey" button off the bottom of the
 canvas entirely (fixed by capping summary lines and clamping the button
 position — see `renderTitle`/`renderEnd` in `src/main.js`), and the data
-sync script was pulling William's *disproven* 1697 marriage date from the
+sync script was pulling William's _disproven_ 1697 marriage date from the
 raw person record instead of the journey's corrected 1693 waypoint.
 
 ## Data pipeline

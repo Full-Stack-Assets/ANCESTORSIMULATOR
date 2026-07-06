@@ -1,0 +1,9 @@
+target-version = "py311"
+line-length = 100
+
+[lint]
+select = ["E", "F", "I"]
+
+[lint.per-file-ignores]
+"tools/tests/*" = ["E402"]
+"tools/sync_ancestor.py" = ["E501"]

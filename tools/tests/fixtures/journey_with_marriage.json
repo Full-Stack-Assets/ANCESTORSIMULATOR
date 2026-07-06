@@ -1,0 +1,11 @@
+{
+  "waypoints": [
+    {
+      "seq": 1,
+      "event": "marriage",
+      "place": {"raw": "Haddonfield Meeting", "lat": 39.9, "lng": -75.0},
+      "date": {"raw": "1728", "year": 1728},
+      "confidence": "documented"
+    }
+  ]
+}

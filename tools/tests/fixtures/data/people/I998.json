@@ -1,0 +1,9 @@
+{
+  "id": "I998",
+  "name": {"full": "Test Spouse"},
+  "vitals": {
+    "birth": {"date": {"year": 1680}},
+    "death": {"date": {"year": 1750}}
+  },
+  "confidence": "documented"
+}

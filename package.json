@@ -2,13 +2,18 @@
   "name": "ancestor-simulator-",
   "version": "1.0.0",
   "description": "A family-history journey game — walk your real ancestors' documented lives, with fact and legend labeled on screen.",
-  "main": "index.js",
+  "type": "module",
   "directories": {
     "doc": "docs"
   },
   "scripts": {
     "serve": "http-server . -p 8917 -s",
-    "smoke": "node tools/smoke.mjs"
+    "smoke": "node tools/smoke.mjs",
+    "test": "vitest run",
+    "test:py": "python3 -m unittest discover -s tools/tests",
+    "lint": "eslint src tools/smoke.mjs && python3 -m ruff check tools/sync_ancestor.py tools/tests",
+    "format": "prettier --write \"src/**/*.js\" \"tools/smoke.mjs\" \"*.{json,md,html}\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"tools/smoke.mjs\" \"*.{json,md,html}\""
   },
   "repository": {
     "type": "git",
@@ -22,7 +27,13 @@
   },
   "homepage": "https://github.com/full-stack-assets/ancestor-simulator-#readme",
   "devDependencies": {
-    "playwright": "^1.56.1"
+    "@eslint/js": "^9.28.0",
+    "eslint": "^9.28.0",
+    "globals": "^16.2.0",
+    "http-server": "^14.1.1",
+    "playwright": "^1.56.1",
+    "prettier": "^3.5.3",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "three": "^0.185.1"

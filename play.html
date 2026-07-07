@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ancestor Journey</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231c2530'/%3E%3Cpath d='M16 5 L18.5 13.5 L27 16 L18.5 18.5 L16 27 L13.5 18.5 L5 16 L13.5 13.5 Z' fill='%23f2c14e'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="src/style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/"
+  }
+}
+</script>
+</head>
+<body>
+  <div id="app">
+    <a id="home-link" href="index.html">← Ancestor Journey</a>
+    <div id="canvas-stack">
+      <canvas id="world" width="960" height="540" aria-hidden="true"></canvas>
+      <canvas id="stage" width="960" height="540" aria-label="Ancestor journey"></canvas>
+    </div>
+    <div id="legend">
+      <span class="legend-item"><i class="dot documented"></i> Documented</span>
+      <span class="legend-item"><i class="dot inferred"></i> Inferred</span>
+      <span class="legend-item"><i class="dot legend"></i> Legend</span>
+      <span class="legend-item legend-controls">In the open world: <b>WASD</b>/arrows to walk &amp; turn, drag mouse to look</span>
+    </div>
+    <div id="import-bar">
+      <button id="import-btn" type="button">📂 Walk your own family tree</button>
+      <input id="gedcom-input" type="file" accept=".ged,.gedcom,text/plain" hidden>
+      <button id="pro-btn" type="button">✦ Get Pro</button>
+      <span id="import-status" role="status" aria-live="polite"></span>
+    </div>
+  </div>
+
+  <!-- Bring-your-own-tree picker. Populated entirely client-side; the uploaded
+       file is parsed in the browser and never leaves the device. -->
+  <div id="picker" class="hidden" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+    <div class="picker-inner">
+      <header class="picker-head">
+        <h2 id="picker-title">Choose an ancestor to walk</h2>
+        <button id="picker-close" type="button" aria-label="Close">✕</button>
+      </header>
+      <p class="picker-privacy">🔒 Parsed in your browser — your file never left this device.</p>
+      <input id="picker-search" type="search" placeholder="Search by name…" aria-label="Search ancestors by name">
+      <ul id="picker-list"></ul>
+      <p id="picker-empty" class="picker-empty hidden">No one in this tree has enough dated life events to walk yet.</p>
+    </div>
+  </div>
+
+  <!-- Pro (freemium) dialog. One-time unlock via Lemon Squeezy's hosted
+       checkout; license keys validated client-side. No tracking, no ads. -->
+  <div id="pro-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="pro-title">
+    <div class="picker-inner">
+      <header class="picker-head">
+        <h2 id="pro-title">Ancestor Journey Pro</h2>
+        <button id="pro-close" type="button" aria-label="Close">✕</button>
+      </header>
+      <p class="pro-tagline">A one-time unlock — no subscription, no ads, no tracking. Your family data never leaves your device.</p>
+      <ul id="pro-features"></ul>
+      <button id="pro-buy" type="button" class="pro-cta">Unlock Pro</button>
+      <p id="pro-price" class="pro-price"></p>
+      <details id="pro-activate">
+        <summary>I already have a license key</summary>
+        <div class="pro-activate-row">
+          <input id="pro-key" type="text" placeholder="Paste your license key" aria-label="License key">
+          <button id="pro-activate-btn" type="button">Activate</button>
+        </div>
+      </details>
+      <p id="pro-status" role="status" aria-live="polite" class="pro-status"></p>
+      <p id="pro-support" class="pro-support hidden"></p>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

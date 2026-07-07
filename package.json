@@ -11,7 +11,8 @@
     "serve": "http-server . -p 8917 -s",
     "smoke": "node tools/smoke.mjs",
     "smoke:import": "node tools/smoke_import.mjs",
-    "smoke:pro": "node tools/smoke_pro.mjs"
+    "smoke:pro": "node tools/smoke_pro.mjs",
+    "smoke:landing": "node tools/smoke_landing.mjs"
   },
   "repository": {
     "type": "git",

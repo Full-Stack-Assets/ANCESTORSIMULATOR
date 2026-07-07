@@ -35,7 +35,7 @@ async function clickCanvasButton(index) {
   await page.mouse.click(box.x + ((b.x + b.w / 2) * box.width) / 960, box.y + ((b.y + b.h / 2) * box.height) / 540);
 }
 
-await page.goto(`${BASE_URL}/index.html`);
+await page.goto(`${BASE_URL}/play.html`);
 await page.waitForTimeout(300);
 
 // 1. Pro dialog opens and lists the feature set.

@@ -30,7 +30,7 @@ const page = await browser.newPage({ viewport: { width: 1000, height: 700 } });
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 page.on('pageerror', (e) => errors.push(String(e)));
 
-await page.goto(`${BASE_URL}/index.html`);
+await page.goto(`${BASE_URL}/play.html`);
 await page.waitForTimeout(300);
 
 await page.setInputFiles('#gedcom-input', FIXTURE);

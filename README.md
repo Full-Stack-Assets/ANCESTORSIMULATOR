@@ -113,8 +113,16 @@ npm install         # playwright is a devDependency, used only for the smoke tes
 npm run serve        # serves the repo root at http://127.0.0.1:8917
 ```
 
-Then open `http://127.0.0.1:8917/index.html` in a browser (or just open
-`index.html` directly from disk — it has no server-side dependencies).
+The site is now two pages:
+
+- **`index.html`** — the marketing/landing page (hero, how-it-works, pricing,
+  FAQ, SEO/OpenGraph). Every call-to-action leads into the game. This is the
+  root visitors land on.
+- **`play.html`** — the game itself (the archive + 3D world + import + Pro).
+
+Open `http://127.0.0.1:8917/` for the landing page or
+`http://127.0.0.1:8917/play.html` to jump straight into the game (both work
+opened directly from disk too — no server-side dependencies).
 
 ## Verify it (smoke test)
 
@@ -150,6 +158,13 @@ locked until Pro is active (then actually downloads a PNG):
 
 ```sh
 npm run smoke:pro -- http://127.0.0.1:8917 /tmp/pro-shots
+```
+
+And the landing page has a driver that checks it loads clean, every CTA leads
+into the game, and the SEO/OpenGraph tags are present:
+
+```sh
+npm run smoke:landing -- http://127.0.0.1:8917 /tmp/landing-shots
 ```
 
 Set `PW_CHROMIUM_PATH` to run any harness against a preinstalled Chromium
@@ -205,8 +220,11 @@ ancestor if their `manual.notes` has that kind of material worth surfacing.
 ## Project structure
 
 ```
-index.html            entry point, canvas stack (2D #stage over WebGL #world) + confidence legend
-src/style.css          page chrome (not game rendering — that's canvas/WebGL)
+index.html            landing / marketing page (hero, pricing, FAQ, SEO/OpenGraph)
+play.html             the game: canvas stack (2D #stage over WebGL #world) + confidence legend
+src/landing.css        landing-page styles (self-contained, matches the game palette)
+assets/hero.png        world screenshot used by the hero + as the OpenGraph share image
+src/style.css          game page chrome (not game rendering — that's canvas/WebGL)
 src/main.js            archive + game state machine + 2D canvas rendering + input handling
 src/world.js            the 3D open world: Three.js scene, player controller, waypoint markers
 src/geo.js              real lat/lng -> walkable local layout (distance compression, collision nudge)

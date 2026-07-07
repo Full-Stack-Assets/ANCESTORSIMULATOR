@@ -36,7 +36,7 @@ async function main() {
   });
   page.on('pageerror', (err) => errors.push(String(err)));
 
-  await page.goto(`${BASE_URL}/index.html`);
+  await page.goto(`${BASE_URL}/play.html`);
   await page.waitForTimeout(300);
   await shot(page, '00-archive');
   await assertScreen(page, 'archive');

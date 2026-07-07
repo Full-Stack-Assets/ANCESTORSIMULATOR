@@ -3,77 +3,218 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ancestor Journey</title>
+<title>Ancestor Journey — walk your family tree as a 3D world</title>
+<meta name="description" content="Turn your family tree (GEDCOM) into a 3D world you can explore on foot. Walk your real ancestors' documented lives — every birth, marriage, and journey, labeled fact or legend. Parsed entirely in your browser; your data never leaves your device.">
+<link rel="canonical" href="https://ancestor-journey.app/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231c2530'/%3E%3Cpath d='M16 5 L18.5 13.5 L27 16 L18.5 18.5 L16 27 L13.5 18.5 L5 16 L13.5 13.5 Z' fill='%23f2c14e'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="src/style.css">
-<script type="importmap">
+
+<!-- Open Graph / Twitter. og:image should be an ABSOLUTE URL in production —
+     set the domain once you have one (see the canonical link above). -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Ancestor Journey — walk your family tree as a 3D world">
+<meta property="og:description" content="Explore your real ancestors' documented lives on foot. Your family data is parsed in your browser and never leaves your device.">
+<meta property="og:image" content="assets/hero.png">
+<meta property="og:url" content="https://ancestor-journey.app/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ancestor Journey — walk your family tree as a 3D world">
+<meta name="twitter:description" content="Explore your real ancestors' documented lives on foot. Parsed in your browser; your data never leaves your device.">
+<meta name="twitter:image" content="assets/hero.png">
+
+<!-- Structured data for rich results. -->
+<script type="application/ld+json">
 {
-  "imports": {
-    "three": "./vendor/three/three.module.js",
-    "three/addons/": "./vendor/three/addons/"
-  }
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Ancestor Journey",
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "Any (web browser)",
+  "description": "Turn your family tree into a 3D world you can walk through — your real ancestors' documented lives, labeled fact or legend, parsed entirely in your browser.",
+  "offers": [
+    { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD" },
+    { "@type": "Offer", "name": "Pro (one-time)", "price": "29", "priceCurrency": "USD" }
+  ]
 }
 </script>
+
+<link rel="stylesheet" href="src/landing.css">
 </head>
 <body>
-  <div id="app">
-    <div id="canvas-stack">
-      <canvas id="world" width="960" height="540" aria-hidden="true"></canvas>
-      <canvas id="stage" width="960" height="540" aria-label="Ancestor journey"></canvas>
-    </div>
-    <div id="legend">
-      <span class="legend-item"><i class="dot documented"></i> Documented</span>
-      <span class="legend-item"><i class="dot inferred"></i> Inferred</span>
-      <span class="legend-item"><i class="dot legend"></i> Legend</span>
-      <span class="legend-item legend-controls">In the open world: <b>WASD</b>/arrows to walk &amp; turn, drag mouse to look</span>
-    </div>
-    <div id="import-bar">
-      <button id="import-btn" type="button">📂 Walk your own family tree</button>
-      <input id="gedcom-input" type="file" accept=".ged,.gedcom,text/plain" hidden>
-      <button id="pro-btn" type="button">✦ Get Pro</button>
-      <span id="import-status" role="status" aria-live="polite"></span>
-    </div>
-  </div>
+<header class="nav">
+  <a class="brand" href="/">
+    <span class="brand-mark" aria-hidden="true">✦</span> Ancestor&nbsp;Journey
+  </a>
+  <nav class="nav-links">
+    <a href="#how">How it works</a>
+    <a href="#pricing">Pricing</a>
+    <a class="btn btn-primary btn-sm" href="play.html">Try it free</a>
+  </nav>
+</header>
 
-  <!-- Bring-your-own-tree picker. Populated entirely client-side; the uploaded
-       file is parsed in the browser and never leaves the device. -->
-  <div id="picker" class="hidden" role="dialog" aria-modal="true" aria-labelledby="picker-title">
-    <div class="picker-inner">
-      <header class="picker-head">
-        <h2 id="picker-title">Choose an ancestor to walk</h2>
-        <button id="picker-close" type="button" aria-label="Close">✕</button>
-      </header>
-      <p class="picker-privacy">🔒 Parsed in your browser — your file never left this device.</p>
-      <input id="picker-search" type="search" placeholder="Search by name…" aria-label="Search ancestors by name">
-      <ul id="picker-list"></ul>
-      <p id="picker-empty" class="picker-empty hidden">No one in this tree has enough dated life events to walk yet.</p>
+<main>
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-copy">
+      <h1>Walk your ancestors'<br>real lives.</h1>
+      <p class="lede">
+        Turn your family tree into a 3D world you can explore on foot — every
+        birth, marriage, migration and homestead, placed on real ground and
+        labeled <b>fact</b> or <b>legend</b>. Not a chart. A place you can stand in.
+      </p>
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-lg" href="play.html">Try it free →</a>
+        <a class="btn btn-ghost btn-lg" href="play.html">Walk a sample life</a>
+      </div>
+      <p class="hero-note">🔒 Your family data is read in your browser and never leaves your device. No account. No tracking.</p>
     </div>
-  </div>
+    <div class="hero-shot">
+      <img src="assets/hero.png" width="960" height="540"
+           alt="A first-person view of a green 3D landscape with a glowing waystone marker and a minimap — an ancestor's life stop rendered as a place you walk to.">
+    </div>
+  </section>
 
-  <!-- Pro (freemium) dialog. One-time unlock via Lemon Squeezy's hosted
-       checkout; license keys validated client-side. No tracking, no ads. -->
-  <div id="pro-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="pro-title">
-    <div class="picker-inner">
-      <header class="picker-head">
-        <h2 id="pro-title">Ancestor Journey Pro</h2>
-        <button id="pro-close" type="button" aria-label="Close">✕</button>
-      </header>
-      <p class="pro-tagline">A one-time unlock — no subscription, no ads, no tracking. Your family data never leaves your device.</p>
-      <ul id="pro-features"></ul>
-      <button id="pro-buy" type="button" class="pro-cta">Unlock Pro</button>
-      <p id="pro-price" class="pro-price"></p>
-      <details id="pro-activate">
-        <summary>I already have a license key</summary>
-        <div class="pro-activate-row">
-          <input id="pro-key" type="text" placeholder="Paste your license key" aria-label="License key">
-          <button id="pro-activate-btn" type="button">Activate</button>
-        </div>
+  <!-- Privacy band -->
+  <section class="band">
+    <p><b>Your family stays yours.</b> Ancestor Journey reads your GEDCOM file
+    entirely inside your browser — there is no upload, no server, no account,
+    and no analytics or ad tracking of any kind. Nothing about your relatives is
+    ever transmitted anywhere.</p>
+  </section>
+
+  <!-- How it works -->
+  <section id="how" class="section">
+    <h2>From family tree to walkable world in three steps</h2>
+    <ol class="steps">
+      <li>
+        <span class="step-n">1</span>
+        <h3>Export your tree</h3>
+        <p>Download a GEDCOM (<code>.ged</code>) from Ancestry, FamilySearch,
+        MyHeritage, Gramps, RootsMagic — any of them. It's the universal
+        family-history format.</p>
+      </li>
+      <li>
+        <span class="step-n">2</span>
+        <h3>Load it (privately)</h3>
+        <p>Drop the file in. It's parsed on your device in a heartbeat; everyone
+        in it with a documented life becomes walkable.</p>
+      </li>
+      <li>
+        <span class="step-n">3</span>
+        <h3>Walk their life</h3>
+        <p>Pick an ancestor and step into a real 3D world built from their own
+        records — walk to each life event and read the story behind it.</p>
+      </li>
+    </ol>
+    <div class="section-cta">
+      <a class="btn btn-primary btn-lg" href="play.html">Load your tree →</a>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section section-alt">
+    <h2>Built for real records, not invented lore</h2>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-ic" aria-hidden="true">🎖️</div>
+        <h3>Fact or legend, always labeled</h3>
+        <p>Every life event carries a confidence badge — Documented, Inferred, or
+        Legend — so a family story is never dressed up as proven fact.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-ic" aria-hidden="true">🗺️</div>
+        <h3>Placed on real ground</h3>
+        <p>Stops sit where they really happened, in true compass bearing —
+        distances gently compressed so an ocean crossing and a farm are both
+        walkable.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-ic" aria-hidden="true">👪</div>
+        <h3>Family &amp; legacy</h3>
+        <p>Each journey closes on spouse, children and occupation, drawn straight
+        from the tree you loaded.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-ic" aria-hidden="true">✦</div>
+        <h3>Keepsakes worth sharing</h3>
+        <p>Pro turns any journey into a beautiful postcard you can download and
+        share — a small heirloom from a long life.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section id="pricing" class="section">
+    <h2>Simple, honest pricing</h2>
+    <p class="section-sub">Explore your whole tree for free. Unlock the extras once, forever — no subscription.</p>
+    <div class="pricing">
+      <div class="plan">
+        <h3>Free</h3>
+        <p class="price">$0</p>
+        <ul>
+          <li>Walk your entire family tree</li>
+          <li>Both sample ancestors</li>
+          <li>Fact/legend confidence labels</li>
+          <li>100% private — data never leaves your device</li>
+        </ul>
+        <a class="btn btn-ghost btn-block" href="play.html">Start free</a>
+      </div>
+      <div class="plan plan-pro">
+        <div class="plan-badge">One-time</div>
+        <h3>Pro</h3>
+        <p class="price">$29 <span>once</span></p>
+        <ul>
+          <li>Everything in Free</li>
+          <li>Keepsake postcard export</li>
+          <li>Ultra visual fidelity <span class="soon">soon</span></li>
+          <li>Saved journeys <span class="soon">soon</span></li>
+          <li>Supports a solo, ad-free project</li>
+        </ul>
+        <a class="btn btn-primary btn-block" href="play.html">Get Pro</a>
+        <p class="plan-foot">Secure checkout by Lemon Squeezy</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section section-alt">
+    <h2>Questions</h2>
+    <div class="faq">
+      <details>
+        <summary>Is my family data safe?</summary>
+        <p>Yes — completely. Your GEDCOM is read and parsed inside your own
+        browser using standard web APIs. It is never uploaded, we run no server
+        that could receive it, there's no account, and there is no analytics or
+        advertising tracking anywhere on the site.</p>
       </details>
-      <p id="pro-status" role="status" aria-live="polite" class="pro-status"></p>
-      <p id="pro-support" class="pro-support hidden"></p>
+      <details>
+        <summary>What's a GEDCOM, and where do I get one?</summary>
+        <p>GEDCOM (<code>.ged</code>) is the standard export format every major
+        genealogy service supports. In Ancestry, FamilySearch, MyHeritage,
+        Gramps or RootsMagic, look for “Export” on your tree and choose GEDCOM.</p>
+      </details>
+      <details>
+        <summary>Do I need to buy anything to use it?</summary>
+        <p>No. Walking your whole tree and both sample lives is free forever. Pro
+        is a one-time unlock for extras like the keepsake postcard export.</p>
+      </details>
+      <details>
+        <summary>My tree has no coordinates — will it still work?</summary>
+        <p>Yes. When a tree carries only place names, we resolve them to
+        approximate locations from a small built-in gazetteer (still with no
+        network call), and label those stops honestly as Inferred.</p>
+      </details>
     </div>
-  </div>
+  </section>
 
-  <script type="module" src="src/main.js"></script>
+  <!-- Final CTA -->
+  <section class="final-cta">
+    <h2>Meet the people you come from.</h2>
+    <a class="btn btn-primary btn-lg" href="play.html">Walk your family tree →</a>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>✦ Ancestor Journey</span>
+  <span class="foot-note">Walked from real family records. Fact and legend, never confused.</span>
+</footer>
 </body>
 </html>

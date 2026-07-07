@@ -17,6 +17,17 @@ html, body {
   margin: 24px auto;
 }
 
+#home-link {
+  display: inline-block;
+  margin: 0 0 10px;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  color: #9aa3a8;
+  text-decoration: none;
+}
+#home-link:hover { color: #f2c14e; }
+#home-link:focus-visible { outline: 2px solid #f2c14e; outline-offset: 2px; }
+
 #canvas-stack {
   position: relative;
   width: 100%;

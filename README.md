@@ -51,6 +51,36 @@ examine" prompt) and every non-map screen exactly as before.
   glowing ring) are visible and walkable-to; walking within range of one and
   pressing **E** (or Enter/Space) opens its detail screen, same as before.
 
+## Walk your own family tree (GEDCOM import)
+
+The same engine renders **anyone's** ancestry, not just the two built-in
+chapters. On the archive screen, **📂 Walk your own family tree** takes a
+standard `.ged` / GEDCOM export (Ancestry, FamilySearch, MyHeritage, Gramps,
+RootsMagic…), and every person in it with at least a couple of dated life
+events becomes walkable — pick one from the searchable list and you're in the
+same 3D world.
+
+**Your file never leaves your device.** The GEDCOM is parsed entirely in the
+browser (`FileReader` → `src/gedcom.js`); there is no upload, no network call,
+and no backend. This is a deliberate privacy stance for real family data, not
+an implementation detail.
+
+How a tree becomes a chapter (`src/chapter.js`):
+
+- **Waypoints** come from each individual's event structures (BIRT/CHR/MARR/
+  RESI/CENS/IMMI/DEAT/BURI…) that carry a date and/or place.
+- **Coordinates** use the file's own `PLAC.MAP.LATI/LONG` when present; when a
+  tree carries only place *strings*, a small bundled gazetteer
+  (`src/gazetteer.js`) resolves them to rough centroids with no network call;
+  as a last resort a placeless stop is nudged near the previous one so the
+  walk still holds together. Approximately-placed stops are honestly labeled
+  **Inferred**, never Documented.
+- **Confidence badges** derive from date precision (an exact date reads
+  Documented; `ABT`/`EST`/`BET…` reads Inferred) — a user's own tree carries no
+  source-quality grading, so we never invent a "Legend" tier for imported data.
+- **Family & Legacy** (spouse, children with lifespans, occupation) is read
+  from the linked `FAM` records.
+
 ## Run it
 
 ```sh
@@ -81,6 +111,16 @@ npm run smoke -- http://127.0.0.1:8917 /tmp/shots  # drive it, save screenshots
 
 Exits non-zero on any browser console error or a click that finds no button.
 `tools/smoke.mjs` is the harness; read it before writing a new one.
+
+The GEDCOM import path has its own driver, which uploads `tools/fixtures/sample.ged`
+to the client-side importer and walks the picker → title → 3D world:
+
+```sh
+npm run smoke:import -- http://127.0.0.1:8917 /tmp/import-shots
+```
+
+Set `PW_CHROMIUM_PATH` to run either harness against a preinstalled Chromium
+instead of Playwright's downloaded build.
 
 This harness has already caught two real bugs, not hypothetical ones:
 adding William's (longer) bio exposed a title-screen layout bug where a long
@@ -137,10 +177,15 @@ src/style.css          page chrome (not game rendering — that's canvas/WebGL)
 src/main.js            archive + game state machine + 2D canvas rendering + input handling
 src/world.js            the 3D open world: Three.js scene, player controller, waypoint markers
 src/geo.js              real lat/lng -> walkable local layout (distance compression, collision nudge)
+src/gedcom.js           dependency-free, in-browser GEDCOM parser (user tree -> object graph)
+src/chapter.js          GEDCOM individual -> playable chapter (same shape as src/data/*.js)
+src/gazetteer.js        bundled place-name -> rough coordinate fallback (no network)
 src/data/josiah.js      generated ancestor data (see Data pipeline above)
 src/data/william.js     generated ancestor data
 tools/sync_ancestor.py  ANC -> game data generator
-tools/smoke.mjs         Playwright e2e driver / smoke test
+tools/smoke.mjs         Playwright e2e driver / smoke test (built-in chapters)
+tools/smoke_import.mjs  Playwright e2e driver for the GEDCOM import path
+tools/fixtures/sample.ged  small GEDCOM fixture the import smoke test drives
 ```
 
 ## Where this is headed

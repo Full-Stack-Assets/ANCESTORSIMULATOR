@@ -5,6 +5,8 @@
 import { JOSIAH } from './data/josiah.js';
 import { WILLIAM } from './data/william.js';
 import * as World from './world.js';
+import { parseGedcom } from './gedcom.js';
+import { listPlayableIndividuals, buildChapter } from './chapter.js';
 
 // One entry per playable ancestor. Add a new chapter by running
 // tools/sync_ancestor.py for a reviewed ANC ancestor and adding it here.
@@ -35,6 +37,7 @@ const W = canvas.width;
 const H = canvas.height;
 const worldCanvas = document.getElementById('world');
 const canvasStack = document.getElementById('canvas-stack');
+const importBar = document.getElementById('import-bar');
 
 let worldInitialized = false;
 let worldHudRunning = false;
@@ -249,6 +252,8 @@ function interactWithWorld() {
 
 function render() {
   state.buttons = [];
+  // The "walk your own tree" bar belongs to the archive (menu) screen only.
+  if (importBar) importBar.classList.toggle('hidden', state.screen !== 'archive');
   clearStage();
   if (state.screen === 'archive') renderArchive();
   else if (state.screen === 'title') renderTitle();
@@ -581,6 +586,119 @@ window.__ANC_DEBUG__ = {
   warpToWaypoint: (index) => World.debugWarpTo(index),
   interact: () => interactWithWorld(),
 };
+
+// ---------------------------------------------------------------------
+// Bring your own family tree: parse a GEDCOM entirely client-side, then let
+// the player pick anyone in it to walk. The uploaded file is read with a
+// FileReader and never leaves the browser — no upload, no network, no backend.
+// ---------------------------------------------------------------------
+
+const importBtn = document.getElementById('import-btn');
+const gedcomInput = document.getElementById('gedcom-input');
+const importStatus = document.getElementById('import-status');
+const picker = document.getElementById('picker');
+const pickerList = document.getElementById('picker-list');
+const pickerSearch = document.getElementById('picker-search');
+const pickerClose = document.getElementById('picker-close');
+const pickerEmpty = document.getElementById('picker-empty');
+
+let importedParse = null; // last successfully parsed GEDCOM object graph
+let importedList = []; // playable individuals from it
+
+function setImportStatus(msg, isError) {
+  importStatus.textContent = msg || '';
+  importStatus.classList.toggle('error', !!isError);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+importBtn.addEventListener('click', () => gedcomInput.click());
+
+gedcomInput.addEventListener('change', () => {
+  const file = gedcomInput.files && gedcomInput.files[0];
+  if (!file) return;
+  setImportStatus('Reading…');
+  const reader = new FileReader();
+  reader.onerror = () => setImportStatus('Could not read that file.', true);
+  reader.onload = () => {
+    try {
+      importedParse = parseGedcom(String(reader.result));
+      importedList = listPlayableIndividuals(importedParse);
+      setImportStatus(
+        `Loaded ${importedParse.individuals.size.toLocaleString()} people — ${importedList.length} ready to walk.`
+      );
+      openPicker();
+    } catch (err) {
+      importedParse = null;
+      importedList = [];
+      setImportStatus(err && err.message ? err.message : 'That file could not be parsed as GEDCOM.', true);
+    }
+  };
+  reader.readAsText(file);
+  gedcomInput.value = ''; // let the same file be re-picked later
+});
+
+function openPicker() {
+  pickerSearch.value = '';
+  renderPickerList(importedList);
+  picker.classList.remove('hidden');
+  pickerSearch.focus();
+}
+
+function closePicker() {
+  picker.classList.add('hidden');
+  canvas.focus();
+}
+
+function renderPickerList(list) {
+  pickerList.innerHTML = '';
+  pickerEmpty.classList.toggle('hidden', list.length > 0);
+  for (const person of list) {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'picker-item';
+    const years =
+      person.birthYear || person.deathYear
+        ? `${person.birthYear || '?'}–${person.deathYear || '?'}`
+        : 'dates unknown';
+    btn.innerHTML =
+      `<span class="pi-name">${escapeHtml(person.name)}</span>` +
+      `<span class="pi-years">${escapeHtml(years)}</span>` +
+      `<div class="pi-meta">${person.eventCount} life events</div>`;
+    btn.addEventListener('click', () => startImportedChapter(person.id));
+    li.appendChild(btn);
+    pickerList.appendChild(li);
+  }
+}
+
+function startImportedChapter(id) {
+  try {
+    const chapter = buildChapter(importedParse, id);
+    closePicker();
+    state.chapter = chapter;
+    state.progress = 0;
+    state.activeIndex = null;
+    state.focusIndex = 0;
+    state.screen = 'title';
+    render();
+  } catch (err) {
+    setImportStatus(err && err.message ? err.message : 'Could not build that journey.', true);
+  }
+}
+
+pickerSearch.addEventListener('input', () => {
+  const q = pickerSearch.value.trim().toLowerCase();
+  renderPickerList(q ? importedList.filter((p) => p.name.toLowerCase().includes(q)) : importedList);
+});
+pickerClose.addEventListener('click', closePicker);
+picker.addEventListener('click', (evt) => { if (evt.target === picker) closePicker(); });
+window.addEventListener('keydown', (evt) => {
+  if (evt.key === 'Escape' && !picker.classList.contains('hidden')) closePicker();
+});
 
 canvas.tabIndex = 0; // make the canvas keyboard-focusable
 canvas.addEventListener('click', (evt) => {

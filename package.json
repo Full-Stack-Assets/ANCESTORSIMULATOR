@@ -3,12 +3,14 @@
   "version": "1.0.0",
   "description": "A family-history journey game — walk your real ancestors' documented lives, with fact and legend labeled on screen.",
   "main": "index.js",
+  "type": "module",
   "directories": {
     "doc": "docs"
   },
   "scripts": {
     "serve": "http-server . -p 8917 -s",
-    "smoke": "node tools/smoke.mjs"
+    "smoke": "node tools/smoke.mjs",
+    "smoke:import": "node tools/smoke_import.mjs"
   },
   "repository": {
     "type": "git",
@@ -22,7 +24,7 @@
   },
   "homepage": "https://github.com/full-stack-assets/ancestor-simulator-#readme",
   "devDependencies": {
-    "playwright": "^1.56.1"
+    "playwright": "^1.61.1"
   },
   "dependencies": {
     "three": "^0.185.1"

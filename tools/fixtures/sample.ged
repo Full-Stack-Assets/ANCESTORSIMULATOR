@@ -1,0 +1,51 @@
+0 HEAD
+1 SOUR TEST
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Josiah /Albertson/
+1 SEX M
+1 BIRT
+2 DATE ABT 1706
+2 PLAC Gloucester County, New Jersey, USA
+3 MAP
+4 LATI N39.8918
+4 LONG W75.1163
+1 OCCU Shoemaker
+1 RESI
+2 DATE 1743
+2 PLAC Magnolia, New Jersey, USA
+1 DEAT
+2 DATE BET 7 DEC 1783 AND 10 MAR 1784
+2 PLAC Gloucester Township, New Jersey, USA
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Ann /Austin/
+1 SEX F
+1 BIRT
+2 DATE 1703
+1 DEAT
+2 DATE 1767
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Hannah /Albertson/
+1 BIRT
+2 DATE 1728
+0 @I4@ INDI
+1 NAME Josiah /Albertson Jr/
+1 BIRT
+2 DATE 1730
+1 DEAT
+2 DATE 1783
+0 @I5@ INDI
+1 NAME Sparse /Person/
+1 SEX M
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 MARR
+2 DATE 12 NOV 1727
+2 PLAC Newton Meeting, New Jersey, USA
+1 CHIL @I3@
+1 CHIL @I4@
+0 TRLR

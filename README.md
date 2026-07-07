@@ -51,6 +51,25 @@ examine" prompt) and every non-map screen exactly as before.
   glowing ring) are visible and walkable-to; walking within range of one and
   pressing **E** (or Enter/Space) opens its detail screen, same as before.
 
+### Visual quality tiers
+
+The world dresses itself to the hardware it's running on (`qualityTier()` in
+`src/world.js`):
+
+- **Standard** (free): normal-mapped, light-catching turf, a dense instanced
+  grass meadow (one draw call), scattered low-poly trees, shadow-casting sun.
+- **Ultra** (the Pro `ultra_fidelity` unlock): higher-resolution shadows,
+  denser meadow and tree cover, and a higher device-pixel-ratio cap.
+- **Lean** (auto): on software / very weak WebGL (SwiftShader, llvmpipe, weak
+  integrated GPUs — detected via `WEBGL_debug_renderer_info`) the heavy
+  whole-screen costs are dropped so the walk stays smooth everywhere.
+
+`window.__ANC_FORCE_QUALITY__ = 'high' | 'low'` overrides the auto-detection to
+preview either path on any machine. (Screen-space bloom and sky-based
+image-based lighting were prototyped but held back: both depend on GPU features
+that couldn't be verified on the CI's software renderer, and a
+renders-black-with-no-error failure isn't worth shipping unverified.)
+
 ## Walk your own family tree (GEDCOM import)
 
 The same engine renders **anyone's** ancestry, not just the two built-in

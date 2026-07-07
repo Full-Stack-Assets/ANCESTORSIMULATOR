@@ -49,8 +49,8 @@ export const PRO_FEATURES = {
   },
   ultra_fidelity: {
     name: 'Ultra visual fidelity',
-    desc: 'Crisper shadows and a denser, richer world.',
-    live: false,
+    desc: 'Sharper shadows and a denser, richer world.',
+    live: true,
   },
   unlimited_worlds: {
     name: 'Saved journeys',

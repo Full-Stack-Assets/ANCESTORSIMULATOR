@@ -7,6 +7,8 @@ import { WILLIAM } from './data/william.js';
 import * as World from './world.js';
 import { parseGedcom } from './gedcom.js';
 import { listPlayableIndividuals, buildChapter } from './chapter.js';
+import * as Monetize from './monetize.js';
+import { downloadPostcard } from './postcard.js';
 
 // One entry per playable ancestor. Add a new chapter by running
 // tools/sync_ancestor.py for a reviewed ANC ancestor and adding it here.
@@ -254,6 +256,7 @@ function render() {
   state.buttons = [];
   // The "walk your own tree" bar belongs to the archive (menu) screen only.
   if (importBar) importBar.classList.toggle('hidden', state.screen !== 'archive');
+  refreshProButton();
   clearStage();
   if (state.screen === 'archive') renderArchive();
   else if (state.screen === 'title') renderTitle();
@@ -550,9 +553,15 @@ function renderEnd() {
     y += 22;
   }
 
+  // Two buttons on the end screen: the keepsake export (a Pro feature) and the
+  // return-to-archive. Return stays buttons[0] so keyboard Enter still works.
   const bw = 220, bh = 46;
   const by = Math.min(y + 30, H - bh - 24);
-  addButton(W / 2 - bw / 2, by, bw, bh, () => {
+  const gap = 16;
+  const returnX = W / 2 - bw - gap / 2;
+  const keepsakeX = W / 2 + gap / 2;
+
+  addButton(returnX, by, bw, bh, () => {
     state.chapter = null;
     state.progress = 0;
     state.activeIndex = null;
@@ -561,7 +570,17 @@ function renderEnd() {
     state.screen = 'archive';
     render();
   });
-  drawButton(W / 2 - bw / 2, by, bw, bh, 'Return to the Archive');
+  drawButton(returnX, by, bw, bh, 'Return to the Archive');
+
+  const keepsakeLabel = Monetize.isLocked('keepsake_export') ? '✦ Keepsake (Pro)' : '✦ Download Keepsake';
+  addButton(keepsakeX, by, bw, bh, () => {
+    if (Monetize.isLocked('keepsake_export')) {
+      openProModal();
+    } else {
+      downloadPostcard(state.chapter);
+    }
+  });
+  drawButton(keepsakeX, by, bw, bh, keepsakeLabel, false);
 }
 
 // exposed for the smoke-test driver (tools/smoke.mjs) only — returns the
@@ -699,6 +718,111 @@ picker.addEventListener('click', (evt) => { if (evt.target === picker) closePick
 window.addEventListener('keydown', (evt) => {
   if (evt.key === 'Escape' && !picker.classList.contains('hidden')) closePicker();
 });
+
+// ---------------------------------------------------------------------
+// Pro (freemium): a one-time unlock via Lemon Squeezy's hosted checkout, with
+// license keys validated client-side (see src/monetize.js). No tracking, no
+// ads, no data ever leaves the device. The dialog degrades honestly when the
+// store owner hasn't connected a checkout yet.
+// ---------------------------------------------------------------------
+
+const proBtn = document.getElementById('pro-btn');
+const proModal = document.getElementById('pro-modal');
+const proClose = document.getElementById('pro-close');
+const proFeatures = document.getElementById('pro-features');
+const proBuy = document.getElementById('pro-buy');
+const proPrice = document.getElementById('pro-price');
+const proKey = document.getElementById('pro-key');
+const proActivateBtn = document.getElementById('pro-activate-btn');
+const proStatus = document.getElementById('pro-status');
+const proSupport = document.getElementById('pro-support');
+
+function refreshProButton() {
+  if (!proBtn) return;
+  const active = Monetize.hasPro();
+  proBtn.textContent = Monetize.proStatusLabel();
+  proBtn.classList.toggle('pro-active', active);
+}
+
+function setProStatus(msg, kind) {
+  proStatus.textContent = msg || '';
+  proStatus.classList.toggle('error', kind === 'error');
+  proStatus.classList.toggle('ok', kind === 'ok');
+}
+
+function renderProFeatures() {
+  proFeatures.innerHTML = '';
+  for (const key of Object.keys(Monetize.PRO_FEATURES)) {
+    const f = Monetize.PRO_FEATURES[key];
+    const li = document.createElement('li');
+    li.innerHTML =
+      `<span class="pf-name">${escapeHtml(f.name)}</span>` +
+      (f.live ? '' : '<span class="pf-soon">coming soon</span>') +
+      `<div>${escapeHtml(f.desc)}</div>`;
+    proFeatures.appendChild(li);
+  }
+}
+
+function openProModal() {
+  renderProFeatures();
+  const owned = Monetize.hasPro();
+  proBuy.disabled = owned;
+  proBuy.textContent = owned ? 'Pro is unlocked — thank you' : `Unlock Pro`;
+  proPrice.textContent = owned ? '' : `${Monetize.CONFIG.priceDisplay} · secure checkout by Lemon Squeezy`;
+  if (Monetize.CONFIG.tipUrl) {
+    proSupport.innerHTML = `Prefer to just tip? <a href="${escapeHtml(Monetize.CONFIG.tipUrl)}" target="_blank" rel="noopener">Support the project →</a>`;
+    proSupport.classList.remove('hidden');
+  } else {
+    proSupport.classList.add('hidden');
+  }
+  setProStatus(owned ? 'Pro is active on this device.' : '', owned ? 'ok' : null);
+  proModal.classList.remove('hidden');
+  (owned ? proClose : proBuy).focus();
+}
+
+function closeProModal() {
+  proModal.classList.add('hidden');
+  canvas.focus();
+}
+
+proBtn.addEventListener('click', openProModal);
+proClose.addEventListener('click', closeProModal);
+proModal.addEventListener('click', (evt) => { if (evt.target === proModal) closeProModal(); });
+
+proBuy.addEventListener('click', () => {
+  if (Monetize.hasPro()) return;
+  const opened = Monetize.startCheckout();
+  if (opened) {
+    setProStatus('Opening secure checkout in a new tab… after purchase, paste your license key below to unlock.', 'ok');
+  } else {
+    setProStatus('Checkout isn’t connected yet — the store owner still needs to link a payment provider. Everything here is free in the meantime.', 'error');
+  }
+});
+
+proActivateBtn.addEventListener('click', async () => {
+  proActivateBtn.disabled = true;
+  setProStatus('Validating…');
+  const result = await Monetize.activateLicense(proKey.value);
+  setProStatus(result.message, result.ok ? 'ok' : 'error');
+  proActivateBtn.disabled = false;
+  if (result.ok) {
+    refreshProButton();
+    openProModal(); // re-render into the owned state
+    if (state.screen === 'end') render(); // relabel the keepsake button
+  }
+});
+
+window.addEventListener('keydown', (evt) => {
+  if (evt.key === 'Escape' && !proModal.classList.contains('hidden')) closeProModal();
+});
+
+// Test hook: lets the smoke test toggle Pro without a real purchase.
+window.__ANC_MONETIZE__ = {
+  setPro: (on) => { Monetize.__setProForTest(on); refreshProButton(); if (state.screen === 'end') render(); },
+  hasPro: () => Monetize.hasPro(),
+};
+
+refreshProButton();
 
 canvas.tabIndex = 0; // make the canvas keyboard-focusable
 canvas.addEventListener('click', (evt) => {

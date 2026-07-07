@@ -81,6 +81,31 @@ How a tree becomes a chapter (`src/chapter.js`):
 - **Family & Legacy** (spouse, children with lifespans, occupation) is read
   from the linked `FAM` records.
 
+## Ancestor Journey Pro (freemium)
+
+Everything above — exploring your whole tree, walking every ancestor, the
+samples — is **free**. A one-time **Pro** unlock adds premium extras, starting
+with a **keepsake postcard** (a shareable 1200×630 PNG of any ancestor's
+journey; more Pro features are stubbed in `src/monetize.js` as "coming soon").
+
+The monetization is deliberately backend-free and privacy-preserving
+(`src/monetize.js`):
+
+- **Purchase** happens on **Lemon Squeezy**'s hosted checkout. They're the
+  merchant of record, so global sales tax/VAT is handled and there's no server
+  to run.
+- **Unlock** is a license key the buyer pastes in; the app validates it
+  directly against Lemon Squeezy's public license API and caches the
+  entitlement in `localStorage`. No backend of ours is involved.
+- **No analytics, no ad networks, no tracking, no data sale.** The network is
+  touched only when the user themselves clicks buy or activate; nothing about
+  their family tree is ever transmitted.
+
+**Owner setup:** fill in the `CONFIG` block at the top of `src/monetize.js`
+(your Lemon Squeezy checkout URL + product with license keys enabled). Until
+then the app stays fully free and the Pro dialog says so honestly — it never
+shows a broken or fake checkout.
+
 ## Run it
 
 ```sh
@@ -119,7 +144,15 @@ to the client-side importer and walks the picker → title → 3D world:
 npm run smoke:import -- http://127.0.0.1:8917 /tmp/import-shots
 ```
 
-Set `PW_CHROMIUM_PATH` to run either harness against a preinstalled Chromium
+The Pro/monetization gate has its own driver too — it checks the upsell dialog,
+that an unconfigured checkout degrades honestly, and that the keepsake export is
+locked until Pro is active (then actually downloads a PNG):
+
+```sh
+npm run smoke:pro -- http://127.0.0.1:8917 /tmp/pro-shots
+```
+
+Set `PW_CHROMIUM_PATH` to run any harness against a preinstalled Chromium
 instead of Playwright's downloaded build.
 
 This harness has already caught two real bugs, not hypothetical ones:
@@ -180,11 +213,14 @@ src/geo.js              real lat/lng -> walkable local layout (distance compress
 src/gedcom.js           dependency-free, in-browser GEDCOM parser (user tree -> object graph)
 src/chapter.js          GEDCOM individual -> playable chapter (same shape as src/data/*.js)
 src/gazetteer.js        bundled place-name -> rough coordinate fallback (no network)
+src/monetize.js         freemium Pro: Lemon Squeezy checkout + client-side license entitlement
+src/postcard.js         keepsake postcard generator (first Pro feature; canvas -> PNG)
 src/data/josiah.js      generated ancestor data (see Data pipeline above)
 src/data/william.js     generated ancestor data
 tools/sync_ancestor.py  ANC -> game data generator
 tools/smoke.mjs         Playwright e2e driver / smoke test (built-in chapters)
 tools/smoke_import.mjs  Playwright e2e driver for the GEDCOM import path
+tools/smoke_pro.mjs     Playwright e2e driver for the Pro/monetization gate
 tools/fixtures/sample.ged  small GEDCOM fixture the import smoke test drives
 ```
 

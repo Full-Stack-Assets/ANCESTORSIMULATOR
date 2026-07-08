@@ -14,6 +14,52 @@ import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { projectWaypoints } from './geo.js';
 import * as Audio from './audio.js';
+import * as Monetize from './monetize.js';
+
+// Two visual tiers. Standard is a big lift over the old flat look for everyone;
+// Ultra (the Pro "ultra_fidelity" feature) pushes shadows and world density
+// further. Resolved fresh each loadChapter so unlocking Pro mid-session takes
+// effect on the next chapter without a reload.
+function qualityTier() {
+  const ultra = Monetize.hasPro();
+  // Software / very weak GPUs (SwiftShader, llvmpipe, some integrated chips)
+  // can't afford IBL + a dense instanced meadow at interactive rates. Detect
+  // that once and fall back to a lean-but-still-dressed path so the world stays
+  // smooth everywhere instead of stuttering.
+  if (lowPerf) {
+    // Match the original lightweight look: keep sky, sun, shadows, fog and
+    // trees, but drop the whole-screen fragment costs (IBL, ground normal map,
+    // dense meadow) that a software renderer can't sustain.
+    return { ultra, groundNormal: false, shadowMap: 2048, grassCount: 0, treeBoost: 1.0, pixelCap: 1.5 };
+  }
+  return {
+    ultra,
+    groundNormal: true,
+    shadowMap: ultra ? 4096 : 2048,
+    grassCount: ultra ? 7000 : 3500,
+    treeBoost: ultra ? 1.6 : 1.0,
+    pixelCap: ultra ? 2 : 1.75,
+  };
+}
+
+// True on software/very weak WebGL, so qualityTier() can lighten the load.
+// window.__ANC_FORCE_QUALITY__ ('high' | 'low') overrides the auto-detection —
+// used to preview the full-fidelity path on any machine (and by the visual
+// smoke check), since the CI's software GL would otherwise always pick 'low'.
+function isSoftwareRenderer() {
+  try {
+    if (typeof window !== 'undefined') {
+      if (window.__ANC_FORCE_QUALITY__ === 'high') return false;
+      if (window.__ANC_FORCE_QUALITY__ === 'low') return true;
+    }
+    const gl = renderer.getContext();
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    return /swiftshader|llvmpipe|software|basic render|microsoft basic/i.test(String(name || ''));
+  } catch (e) {
+    return false;
+  }
+}
 
 const CONFIDENCE_COLOR = {
   documented: 0x3ba55c,
@@ -30,12 +76,15 @@ const BOB_AMPLITUDE = 0.055;
 const BOB_FREQUENCY = 5.6; // radians/sec while moving at full speed
 
 let renderer, scene, camera, clock;
+let lowPerf = false; // true on software/very weak GL — drives the lean quality tier
 let ground, pathLine, sky, sun;
 let markers = []; // { group, index, pos, reached, isFrontier }
 let props = [];
 let player = { x: 0, z: 0, yaw: 0, pitch: 0 };
 let keys = Object.create(null);
 let dragState = null;
+let touchLook = null; // active touch-drag look gesture on the world canvas
+let touchAxis = { f: 0, s: 0 }; // movement from the on-screen joystick (main.js)
 let interactable = null; // index of the nearest in-range marker, or null
 let prevInteractable = null;
 let nearestDistance = null;
@@ -57,7 +106,9 @@ let audioArmed = false;
 export function initWorld(renderCanvas, inputCanvas) {
   canvasEl = renderCanvas;
   renderer = new THREE.WebGLRenderer({ canvas: renderCanvas, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  lowPerf = isSoftwareRenderer();
+  const q = qualityTier();
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pixelCap));
   renderer.setSize(renderCanvas.clientWidth || renderCanvas.width, renderCanvas.clientHeight || renderCanvas.height, false);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -89,6 +140,34 @@ export function initWorld(renderCanvas, inputCanvas) {
   });
   window.addEventListener('mouseup', () => { dragState = null; });
 
+  // Touch drag-to-look. Only engages in the world (running), and only once the
+  // finger has actually moved a little — so a tap still becomes a click (the
+  // "examine" prompt and every 2D screen are canvas buttons that need clicks).
+  // The joystick is a separate DOM element, so its touches never reach here.
+  inputCanvas.addEventListener('touchstart', (e) => {
+    if (!running) return;
+    armAudio();
+    const t = e.changedTouches[0];
+    touchLook = { id: t.identifier, x: t.clientX, y: t.clientY, yaw: player.yaw, pitch: player.pitch, moved: false };
+  }, { passive: true });
+  window.addEventListener('touchmove', (e) => {
+    if (!touchLook) return;
+    const t = Array.from(e.changedTouches).find((tt) => tt.identifier === touchLook.id);
+    if (!t) return;
+    const dx = t.clientX - touchLook.x;
+    const dy = t.clientY - touchLook.y;
+    if (!touchLook.moved && Math.hypot(dx, dy) < 8) return; // below threshold — still a potential tap
+    touchLook.moved = true;
+    player.yaw = touchLook.yaw - dx * 0.005;
+    player.pitch = clamp(touchLook.pitch - dy * 0.005, -1.1, 1.1);
+    e.preventDefault(); // suppress page scroll once we're actually looking
+  }, { passive: false });
+  const endTouchLook = (e) => {
+    if (touchLook && Array.from(e.changedTouches).some((tt) => tt.identifier === touchLook.id)) touchLook = null;
+  };
+  window.addEventListener('touchend', endTouchLook);
+  window.addEventListener('touchcancel', endTouchLook);
+
   renderer.setAnimationLoop(() => {
     if (!running) return;
     step(clock.getDelta());
@@ -104,7 +183,9 @@ function aspect() {
 
 export function resize() {
   if (!renderer) return;
-  renderer.setSize(canvasEl.clientWidth || canvasEl.width, canvasEl.clientHeight || canvasEl.height, false);
+  const w = canvasEl.clientWidth || canvasEl.width;
+  const h = canvasEl.clientHeight || canvasEl.height;
+  renderer.setSize(w, h, false);
   camera.aspect = aspect();
   camera.updateProjectionMatrix();
 }
@@ -122,19 +203,28 @@ export function loadChapter(chapterData, reachedCount) {
   const extent = Math.max(400, ...positions.map((p) => Math.hypot(p.x, p.z) * 1.4));
   currentExtent = extent;
 
+  const q = qualityTier();
+
   const rig = buildSky(extent);
   sky = rig.sky;
   sun = rig.sun;
+  sun.shadow.mapSize.set(q.shadowMap, q.shadowMap);
   scene.add(sky, rig.hemi, sun, sun.target);
   scene.fog = new THREE.Fog(rig.fogColor, extent * 0.55, extent * 3.4);
   scene.background = rig.fogColor;
 
-  ground = buildGround(extent);
+  ground = buildGround(extent, q.groundNormal);
   scene.add(ground);
 
-  const rng = seededRandom(hashSeed(chapterData.id || chapterData.name || 'chapter'));
-  props = scatterProps(extent, positions, rng);
+  const seedBase = chapterData.id || chapterData.name || 'chapter';
+  const rng = seededRandom(hashSeed(seedBase));
+  props = scatterProps(extent, positions, rng, q.treeBoost);
   scene.add(props);
+
+  // A dense instanced meadow near the walkable area — the biggest single lift
+  // from "empty field" to "dressed world", and cheap because it's one draw call.
+  const grass = buildGrassField(extent, seededRandom(hashSeed(seedBase + ':grass')), q.grassCount, positions);
+  if (grass) scene.add(grass);
 
   markers = chapterData.waypoints.map((wp, i) => {
     const pos = positions[i];
@@ -227,7 +317,7 @@ function updateSunTarget() {
 // Ground + world dressing
 // ---------------------------------------------------------------------
 
-function buildGround(extent) {
+function buildGround(extent, withNormalMap = true) {
   const size = extent * 2.4;
   const segs = 90;
   const geo = new THREE.PlaneGeometry(size, size, segs, segs);
@@ -248,12 +338,76 @@ function buildGround(extent) {
   // A tiny texture repeated this many times across a huge ground plane
   // aliases badly at grazing viewing angles (moire "speed lines") without
   // anisotropic filtering — this is what fixes it, not more geometry detail.
-  texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const maxAniso = renderer.capabilities.getMaxAnisotropy();
+  texture.anisotropy = maxAniso;
 
-  const mat = new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0 });
+  // A matching normal map gives the turf real per-pixel relief under the sun,
+  // so it catches light like ground instead of reading as a printed sheet.
+  // Skipped on the lean tier — it's a per-fragment cost across the whole plane.
+  const matOpts = { map: texture, roughness: 0.98, metalness: 0 };
+  if (withNormalMap) {
+    const normal = groundNormalTexture();
+    normal.repeat.copy(texture.repeat);
+    normal.anisotropy = maxAniso;
+    matOpts.normalMap = normal;
+    matOpts.normalScale = new THREE.Vector2(0.55, 0.55);
+  }
+  const mat = new THREE.MeshStandardMaterial(matOpts);
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
   return mesh;
+}
+
+/** A tileable normal map derived from blurred value noise — gives the ground
+ * fine, light-catching relief without any extra geometry. Linear data, so it
+ * must NOT be tagged sRGB. Generated once per module load. */
+let cachedGroundNormal = null;
+function groundNormalTexture() {
+  if (cachedGroundNormal) return cachedGroundNormal;
+  const size = 256;
+  const noise = new Float32Array(size * size);
+  for (let i = 0; i < noise.length; i++) noise[i] = Math.random();
+  const blur = (src) => {
+    const dst = new Float32Array(size * size);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        let s = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            s += src[((y + dy + size) % size) * size + ((x + dx + size) % size)];
+          }
+        }
+        dst[y * size + x] = s / 9;
+      }
+    }
+    return dst;
+  };
+  const h = blur(blur(noise));
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  const img = ctx.createImageData(size, size);
+  const strength = 2.2;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const l = h[y * size + ((x - 1 + size) % size)];
+      const r = h[y * size + ((x + 1) % size)];
+      const u = h[((y - 1 + size) % size) * size + x];
+      const d = h[((y + 1 + size) % size) * size + x];
+      let nx = (l - r) * strength, ny = (u - d) * strength, nz = 1;
+      const len = Math.hypot(nx, ny, nz);
+      const idx = (y * size + x) * 4;
+      img.data[idx] = ((nx / len) * 0.5 + 0.5) * 255;
+      img.data[idx + 1] = ((ny / len) * 0.5 + 0.5) * 255;
+      img.data[idx + 2] = ((nz / len) * 0.5 + 0.5) * 255;
+      img.data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  cachedGroundNormal = t;
+  return t;
 }
 
 /** A small tileable canvas texture standing in for real turf art — mottled
@@ -291,11 +445,11 @@ function grassTexture() {
  * reloading the same chapter (e.g. after closing a detail screen) doesn't
  * make the dressing jump around. Waypoints and the path stay clear so props
  * never block interaction or walking. */
-function scatterProps(extent, waypointPositions, rng) {
+function scatterProps(extent, waypointPositions, rng, treeBoost = 1) {
   const group = new THREE.Group();
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5b432c, roughness: 0.95 });
   const leafPalette = [0x3f6b3a, 0x4f7a42, 0x386b4a];
-  const count = Math.round(60 + extent * 0.06);
+  const count = Math.round((60 + extent * 0.06) * treeBoost);
 
   for (let i = 0; i < count; i++) {
     const x = (rng() * 2 - 1) * extent * 1.05;
@@ -326,6 +480,81 @@ function scatterProps(extent, waypointPositions, rng) {
   return group;
 }
 
+/** A dense instanced meadow of grass tufts around the walkable area — one draw
+ * call for thousands of tufts, biased toward the centre where the player walks
+ * and kept clear of the waypoint pads. The single biggest lift from bare plane
+ * to "dressed world". Count scales with the visual-quality tier. */
+function buildGrassField(extent, rng, count, waypointPositions) {
+  if (!count) return null;
+  const geo = new THREE.PlaneGeometry(0.9, 0.7);
+  geo.translate(0, 0.35, 0); // pivot at the base so tufts sit on the ground
+  const mat = new THREE.MeshStandardMaterial({
+    map: grassBladeTexture(),
+    alphaTest: 0.45, // crisp cutout, no transparency sorting needed
+    side: THREE.DoubleSide,
+    roughness: 1,
+    metalness: 0,
+  });
+  const mesh = new THREE.InstancedMesh(geo, mat, count);
+  mesh.castShadow = false;
+  mesh.receiveShadow = true;
+
+  const dummy = new THREE.Object3D();
+  const col = new THREE.Color();
+  const radius = extent * 0.9;
+  let placed = 0;
+  for (let i = 0; i < count; i++) {
+    const r = Math.sqrt(rng()) * radius; // sqrt → denser toward the centre
+    const a = rng() * Math.PI * 2;
+    const x = Math.cos(a) * r;
+    const z = Math.sin(a) * r;
+    if (waypointPositions.some((p) => Math.hypot(p.x - x, p.z - z) < 3)) continue;
+    const s = 0.7 + rng() * 1.0;
+    dummy.position.set(x, groundHeightAt(x, z), z);
+    dummy.rotation.set(0, rng() * Math.PI, 0);
+    dummy.scale.set(s, s * (0.8 + rng() * 0.7), s);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(placed, dummy.matrix);
+    col.setHSL(0.25 + rng() * 0.06, 0.42, 0.30 + rng() * 0.14);
+    mesh.setColorAt(placed, col);
+    placed++;
+  }
+  mesh.count = placed; // trim the reserved-but-skipped tail
+  mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  return mesh;
+}
+
+/** A small transparent canvas of a few grass blades, used on the meadow tufts. */
+let cachedBladeTexture = null;
+function grassBladeTexture() {
+  if (cachedBladeTexture) return cachedBladeTexture;
+  const w = 64, h = 64;
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  for (let b = 0; b < 7; b++) {
+    const bx = 8 + Math.random() * (w - 16);
+    const bw = 2 + Math.random() * 2.5;
+    const bh = 26 + Math.random() * 34;
+    const lean = (Math.random() - 0.5) * 12;
+    const g = 95 + Math.floor(Math.random() * 70);
+    ctx.fillStyle = `rgb(${40 + Math.floor(Math.random() * 40)}, ${g}, ${40 + Math.floor(Math.random() * 30)})`;
+    ctx.beginPath();
+    ctx.moveTo(bx, h);
+    ctx.quadraticCurveTo(bx + lean, h - bh * 0.6, bx + lean * 1.6, h - bh);
+    ctx.lineTo(bx + lean * 1.6 + bw, h - bh);
+    ctx.quadraticCurveTo(bx + lean + bw, h - bh * 0.6, bx + bw, h);
+    ctx.closePath();
+    ctx.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  cachedBladeTexture = t;
+  return t;
+}
+
 function buildMarker(wp, visible, isFrontier) {
   const group = new THREE.Group();
   group.visible = visible;
@@ -345,7 +574,7 @@ function buildMarker(wp, visible, isFrontier) {
 
   const crystal = new THREE.Mesh(
     new THREE.OctahedronGeometry(1.05, 0),
-    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.9, roughness: 0.25, metalness: 0.1 })
+    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1.3, roughness: 0.25, metalness: 0.1 })
   );
   crystal.position.y = 6.2;
   crystal.castShadow = true;
@@ -390,6 +619,7 @@ function clearScene() {
 }
 
 function disposeDeep(obj) {
+  if (obj.isInstancedMesh && obj.dispose) obj.dispose(); // frees instance buffers too
   if (obj.geometry) obj.geometry.dispose();
   if (obj.material) {
     (Array.isArray(obj.material) ? obj.material : [obj.material]).forEach((m) => m.dispose());
@@ -403,16 +633,19 @@ function step(dt) {
   if (keys.arrowleft) player.yaw += TURN_SPEED * dt;
   if (keys.arrowright) player.yaw -= TURN_SPEED * dt;
 
-  const forward = (keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0);
-  const strafe = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
+  // Movement blends keyboard (on/off) and the on-screen joystick (analog).
+  const forward = clamp((keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0) + touchAxis.f, -1, 1);
+  const strafe = clamp((keys.d ? 1 : 0) - (keys.a ? 1 : 0) + touchAxis.s, -1, 1);
   let moving = false;
-  if (forward || strafe) {
+  const mag = Math.hypot(forward, strafe);
+  if (mag > 0.02) {
     moving = true;
-    const mag = Math.hypot(forward, strafe) || 1;
-    const fx = -Math.sin(player.yaw) * forward, fz = -Math.cos(player.yaw) * forward;
-    const sx = Math.cos(player.yaw) * strafe, sz = -Math.sin(player.yaw) * strafe;
-    const dx = ((fx + sx) / mag) * PLAYER_SPEED * dt;
-    const dz = ((fz + sz) / mag) * PLAYER_SPEED * dt;
+    const speedFactor = Math.min(1, mag); // a half-pushed stick walks at half pace
+    const nf = forward / mag, ns = strafe / mag;
+    const fx = -Math.sin(player.yaw) * nf, fz = -Math.cos(player.yaw) * nf;
+    const sx = Math.cos(player.yaw) * ns, sz = -Math.sin(player.yaw) * ns;
+    const dx = (fx + sx) * PLAYER_SPEED * speedFactor * dt;
+    const dz = (fz + sz) * PLAYER_SPEED * speedFactor * dt;
     player.x += dx;
     player.z += dz;
 
@@ -487,8 +720,26 @@ function hashSeed(str) {
 }
 
 export function setOnArrive(fn) { onArrive = fn; }
-export function start() { running = true; clock.getDelta(); }
-export function stop() { running = false; keys = Object.create(null); }
+
+/** Feed analog movement from the on-screen joystick (main.js). forward: +ahead,
+ * -back; strafe: +right, -left; each in [-1, 1]. */
+export function setMoveAxis(forward, strafe) {
+  touchAxis.f = clamp(forward, -1, 1);
+  touchAxis.s = clamp(strafe, -1, 1);
+}
+export function start() {
+  running = true;
+  // Warm up: force shader compilation and one full post-processing pass NOW,
+  // while the chapter is loading, so the expensive first frame (bloom program
+  // compile, etc.) doesn't land mid-walk — a stall there gets clamped by
+  // step()'s dt cap and silently eats the player's first stride.
+  try {
+    renderer.compile(scene, camera);
+    renderer.render(scene, camera);
+  } catch (e) { /* non-fatal — the loop will render normally */ }
+  clock.getDelta(); // reset so the first interactive step() sees ~0 elapsed, not the warm-up cost
+}
+export function stop() { running = false; keys = Object.create(null); touchAxis = { f: 0, s: 0 }; touchLook = null; }
 
 export function getWorldState() {
   return {

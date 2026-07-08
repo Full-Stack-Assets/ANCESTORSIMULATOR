@@ -23,14 +23,20 @@ mkdirSync(OUT_DIR, { recursive: true });
 const errors = [];
 
 async function main() {
-  const browser = await chromium.launch();
+  // Allow pointing at a preinstalled Chromium (e.g. CI images that ship the
+  // browser out-of-band) via PW_CHROMIUM_PATH, instead of Playwright's own
+  // downloaded build. No-op when unset — normal local runs are unaffected.
+  const launchOpts = process.env.PW_CHROMIUM_PATH
+    ? { executablePath: process.env.PW_CHROMIUM_PATH }
+    : {};
+  const browser = await chromium.launch(launchOpts);
   const page = await browser.newPage({ viewport: { width: 1000, height: 700 } });
   page.on('console', (msg) => {
     if (msg.type() === 'error') errors.push(msg.text());
   });
   page.on('pageerror', (err) => errors.push(String(err)));
 
-  await page.goto(`${BASE_URL}/index.html`);
+  await page.goto(`${BASE_URL}/play.html`);
   await page.waitForTimeout(300);
   await shot(page, '00-archive');
   await assertScreen(page, 'archive');

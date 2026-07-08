@@ -1,0 +1,59 @@
+name: CI
+
+# Runs the full Playwright smoke suite (game, GEDCOM import, Pro gate, landing)
+# on every pull request and on pushes to the main branches. Vercel already
+# auto-deploys previews; this is the missing gate that proves the build works
+# before it ships. A static site needs no build step, so this is pure verify.
+on:
+  pull_request:
+  push:
+    branches: [main, 'feature/**']
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Serve the static site
+        run: |
+          python3 -m http.server 8917 --bind 127.0.0.1 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8917/play.html >/dev/null && break
+            sleep 0.5
+          done
+
+      - name: Smoke — built-in chapters
+        run: npm run smoke -- http://127.0.0.1:8917 /tmp/shots/base
+
+      - name: Smoke — GEDCOM import
+        run: npm run smoke:import -- http://127.0.0.1:8917 /tmp/shots/import
+
+      - name: Smoke — Pro / monetization gate
+        run: npm run smoke:pro -- http://127.0.0.1:8917 /tmp/shots/pro
+
+      - name: Smoke — landing page
+        run: npm run smoke:landing -- http://127.0.0.1:8917 /tmp/shots/landing
+
+      - name: Smoke — mobile / touch controls
+        run: npm run smoke:mobile -- http://127.0.0.1:8917 /tmp/shots/mobile
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-screenshots
+          path: /tmp/shots
+          if-no-files-found: ignore

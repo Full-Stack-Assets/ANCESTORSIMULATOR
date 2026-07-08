@@ -125,10 +125,15 @@ The monetization is deliberately backend-free and privacy-preserving
   touched only when the user themselves clicks buy or activate; nothing about
   their family tree is ever transmitted.
 
+Pro currently unlocks a **keepsake postcard**, **Ultra visual fidelity**, and
+**saved journeys** (resume any ancestor you've walked — imported trees included,
+stored on-device via `src/journeys.js`).
+
 **Owner setup:** fill in the `CONFIG` block at the top of `src/monetize.js`
 (your Lemon Squeezy checkout URL + product with license keys enabled). Until
 then the app stays fully free and the Pro dialog says so honestly — it never
-shows a broken or fake checkout.
+shows a broken or fake checkout. See **[GO-LIVE.md](GO-LIVE.md)** for the
+step-by-step turn-on-payments guide.
 
 ## Run it
 
@@ -265,14 +270,17 @@ src/gedcom.js           dependency-free, in-browser GEDCOM parser (user tree -> 
 src/chapter.js          GEDCOM individual -> playable chapter (same shape as src/data/*.js)
 src/gazetteer.js        bundled place-name -> rough coordinate fallback (no network)
 src/monetize.js         freemium Pro: Lemon Squeezy checkout + client-side license entitlement
-src/postcard.js         keepsake postcard generator (first Pro feature; canvas -> PNG)
+src/postcard.js         keepsake postcard generator (Pro feature; canvas -> PNG)
+src/journeys.js         saved journeys (Pro feature): resume walked ancestors, stored on-device
 src/data/josiah.js      generated ancestor data (see Data pipeline above)
 src/data/william.js     generated ancestor data
 tools/sync_ancestor.py  ANC -> game data generator
+tools/test_gedcom.mjs   Node unit tests for the GEDCOM parser (encoding, names)
 tools/smoke.mjs         Playwright e2e driver / smoke test (built-in chapters)
 tools/smoke_import.mjs  Playwright e2e driver for the GEDCOM import path
 tools/smoke_pro.mjs     Playwright e2e driver for the Pro/monetization gate
 tools/smoke_mobile.mjs  Playwright e2e driver for touch controls (joystick, responsive layout)
+tools/smoke_journeys.mjs Playwright e2e driver for saved journeys (Pro)
 tools/fixtures/sample.ged  small GEDCOM fixture the import smoke test drives
 ```
 

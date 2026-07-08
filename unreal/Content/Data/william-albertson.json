@@ -1,0 +1,108 @@
+{
+  "id": "I182197776810",
+  "name": "William Albertson",
+  "birthYear": 1635,
+  "deathYear": 1709,
+  "summary": "An Irish Quaker colonist of the Delaware Valley — not the Dutchman of family lore. Documented in Irish Friends meetings in Counties Laois/Carlow/Kildare through 1681 (including a 1678 disownment for 'committing a folly with a woman', later forgiven), he emigrated with his first wife Jane (Preston) in 1681-82 to the Irish Tenth of West New Jersey, locating a Newton Township tract on 2 May 1682. Founding trustee of Newton Meeting, 250-acre landholder, grand juror, and 1685 West Jersey Assemblyman, he shifted across the Delaware to Byberry on Poquessing Creek by 1692, where his daughter had married the miller Walter Forrest. Widowed, he married Hannah (Drewett) Stockdale between 1693 and 1695, raised a second family, and died a prosperous mill owner — will dated 7 December 1709, proved 17 January 1709/10.",
+  "journeyStatus": "reviewed",
+  "waypoints": [
+    {
+      "seq": 1,
+      "place": "Mountmellick / Rosenallis area, County Laois, Ireland",
+      "lat": 53.115,
+      "lng": -7.327,
+      "date": "BEF 1682",
+      "year": 1670,
+      "event": "Irish Quaker life (origin)",
+      "narrative": "His documented life begins in the Irish Friends communities of Counties Laois, Carlow and Kildare: named in New Garden MM (Co. Carlow) minutes 1670 marrying Jane Preston; disowned 9th month 1678 for 'committing a folly with a woman' and later readmitted; witness with Jane to a Co. Laois marriage in 1681 (Mountmellick MM). Birth c. 1630s, place unknown — the 'Steenwijk, Holland' origin of family lore is a debunked graft onto another man, and the export's '1635 Byberry, Pennsylvania' birth is impossible.",
+      "confidence": "documented"
+    },
+    {
+      "seq": 2,
+      "place": "Newton Township, Gloucester County, West New Jersey",
+      "lat": 39.918,
+      "lng": -75.071,
+      "date": "2 MAY 1682",
+      "year": 1682,
+      "event": "emigration & settlement",
+      "narrative": "Emigrated 1681-82 with Jane and their children to the 'Irish Tenth' of West New Jersey — land rights via Godfrey Cantrell of Rosenallis — locating his Newton Township tract on 2 May 1682. Founding trustee of the Newton Meeting house lot; 250 acres returned in the Third (Irish) Tenth in 1684; Burlington court grand juror 1685/6; returned to the West Jersey Assembly 1685. The tree's 'arrived New York 1682' is an artifact of the false Dutch/New York identification.",
+      "confidence": "documented"
+    },
+    {
+      "seq": 3,
+      "place": "Byberry (Poquessing Creek), Philadelphia/Bucks border, Pennsylvania",
+      "lat": 40.0884,
+      "lng": -74.993,
+      "date": "ABT 1690",
+      "year": 1690,
+      "event": "removal to Byberry",
+      "narrative": "Moved across the Delaware to Byberry on the Poquessing by 1692 (a 1692 Gloucester deed already styles him a Byberry resident). The pull was family: daughter Ann had married 'Walter Forest of Bybury Mill' at Newton Meeting in 1686, and Forrest's 1691/2 will left half his mill to 'three persons named Albertson' — the likely route to the grain and saw mills William held at death.",
+      "confidence": "documented"
+    },
+    {
+      "seq": 4,
+      "place": "New Castle County, Delaware (probable)",
+      "lat": 39.662,
+      "lng": -75.5666,
+      "date": "BET 1693 AND 1695",
+      "year": 1693,
+      "event": "second marriage",
+      "narrative": "Jane having died, William married Hannah (Drewett) Stockdale — London-born Quaker, 1677 Kent passenger, widow of the minister William Stockdale (buried Philadelphia 1693). Her father Morgan Druet's will of 27 Sep 1695 already calls William his son-in-law, disproving the tree's '1 July 1697' date. New Castle County is the probable setting (Druet's probate there) but the exact place and date are unrecorded. Her toddler son Jarvis Stockdale joined the household — William's stepson, and later his son-in-law too, marrying daughter Cassandra.",
+      "confidence": "inferred"
+    },
+    {
+      "seq": 5,
+      "place": "Poquessing (Byberry), Bucks County, Pennsylvania",
+      "lat": 40.0884,
+      "lng": -74.993,
+      "date": "BET DEC 1709 AND JAN 1710",
+      "year": 1709,
+      "event": "death",
+      "narrative": "Made his will 7 December 1709 — 'ALBERSON, WILLIAM. Bucks Co.', proved 17 January 1709/10 — naming wife Hannah executrix and seven children. Per Clement he died 'at Poquesin, in Bucks county' owning grain and saw mills and considerable property, survived by all his children except Ann. Presumably buried in a Friends ground in the Byberry/Abington orbit; Hannah remained an Abington Friend until transferring to Philadelphia MM in 1729.",
+      "confidence": "documented"
+    }
+  ],
+  "occupation": null,
+  "spouse": {
+    "name": "Hannah DREWETT (STOCKDALE)",
+    "birthYear": 1669,
+    "deathYear": 1736,
+    "marriageYear": 1693,
+    "marriagePlace": "New Castle County, Delaware (probable)",
+    "confidence": "documented"
+  },
+  "legacyNote": "The Irish Quaker who crossed an ocean left seven children, two mills on the Poquessing, and a family that stayed on the land he settled for generations — including the son of the next chapter, and eventually you.",
+  "familyNote": "Two wives, two families. Jane (Preston) died before 1695; William married the widow Hannah Drewett within the next year or two.",
+  "children": [
+    {
+      "name": "William Jr.",
+      "fate": "by Jane Preston — m. Esther Willis (Long Island) 1695; inherited the Newton homestead; West Jersey Assemblyman"
+    },
+    {
+      "name": "Abraham",
+      "fate": "by Jane Preston — m. Hannah Medcalf; received the 1692 Gloucester-bounds tract"
+    },
+    {
+      "name": "Rebecca",
+      "fate": "by Jane Preston — m. Joseph Satterthwaite"
+    },
+    {
+      "name": "Ann",
+      "fate": "by Jane Preston — m. (1) Walter Forrest of Byberry Mill 1686, (2) John Kaighn c. 1694; predeceased her father"
+    },
+    {
+      "name": "Benjamin",
+      "fate": "by Hannah Drewett — m. Sarah Walton, 1724, Abington Meeting"
+    },
+    {
+      "name": "Cassandra",
+      "fate": "by Hannah Drewett — m. her step-brother Jarvis Stockdale"
+    },
+    {
+      "name": "Josiah",
+      "fate": "by Hannah Drewett — the ancestor of the previous chapter"
+    }
+  ],
+  "childrenNote": "Per William's will (7 Dec 1709, proved 17 Jan 1709/10) and the WikiTree Quakers Project profile (Alberson-96).",
+  "childrenConfidence": "documented"
+}

@@ -1,0 +1,20 @@
+{
+  "chapters": [
+    {
+      "id": "I182197776810",
+      "name": "William Albertson",
+      "birthYear": 1635,
+      "deathYear": 1709,
+      "waypoints": 5,
+      "file": "william-albertson.json"
+    },
+    {
+      "id": "I182197770339",
+      "name": "Josiah Albertson",
+      "birthYear": 1706,
+      "deathYear": 1783,
+      "waypoints": 6,
+      "file": "josiah-albertson.json"
+    }
+  ]
+}

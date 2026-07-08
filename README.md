@@ -284,6 +284,25 @@ tools/smoke_journeys.mjs Playwright e2e driver for saved journeys (Pro)
 tools/fixtures/sample.ged  small GEDCOM fixture the import smoke test drives
 ```
 
+## Unreal Engine build (`unreal/`)
+
+A parallel **Unreal Engine 5** build lives in [`unreal/`](unreal/). It renders
+the **same chapter data** as this web build: `tools/export_chapter_json.mjs`
+reuses the parser in `src/` to emit chapter JSON, and the UE `ChapterLoader`
+reads it — one shared data model, no divergent genealogy logic in C++.
+
+```sh
+node tools/export_chapter_json.mjs --builtin --out unreal/Content/Data   # sample chapters
+node tools/export_chapter_json.mjs path/to/tree.ged --all --out unreal/Content/Data  # from a GEDCOM
+```
+
+That UE C++ is an **authored scaffold that has not been compiled here** — it
+needs a machine with the Unreal Editor to build. See
+[`unreal/README.md`](unreal/README.md) for status, setup, the gameplay roadmap,
+and the honest platform trade-offs (native vs. pixel-streaming distribution, and
+what that means for the "runs in your browser, data never leaves your device"
+promise).
+
 ## Where this is headed
 
 This slice proves the format works and the data pipeline holds up end to

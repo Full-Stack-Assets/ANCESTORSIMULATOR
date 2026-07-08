@@ -1,0 +1,19 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.5",
+	"Category": "",
+	"Description": "Walk your real ancestors' documented lives in a 3D world — Unreal Engine build. Data comes from the shared chapter JSON exported by tools/export_chapter_json.mjs (the same parser the web build uses).",
+	"Modules": [
+		{
+			"Name": "AncestorJourney",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "EnhancedInput",
+			"Enabled": true
+		}
+	]
+}

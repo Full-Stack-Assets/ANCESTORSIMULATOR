@@ -6,7 +6,7 @@
 // Usage: node tools/test_gedcom.mjs
 
 import { decodeGedcom, parseGedcom, cleanName } from '../src/gedcom.js';
-import { listPlayableIndividuals } from '../src/chapter.js';
+import { listPlayableIndividuals, buildChapter } from '../src/chapter.js';
 
 let failures = 0;
 const ok = (cond, msg) => { if (!cond) { failures++; console.error('FAIL:', msg); } };
@@ -71,5 +71,18 @@ ok(walkable.some((p) => p.name === 'John Smith'), 'GIVN/SURN individual is walka
 ok(cleanName('Josiah /Albertson/') === 'Josiah Albertson', 'cleanName strips slashes');
 ok(cleanName('') === 'Unknown', 'cleanName empty -> Unknown');
 
+// --- Data-bridge contract: buildChapter() must keep the fields the Unreal
+//     importer (unreal/Source/AncestorJourney/AncestorTypes.h) reads. ---
+const chapter = buildChapter(parsed, '@I1@');
+for (const key of ['id', 'name', 'birthYear', 'deathYear', 'summary', 'waypoints']) {
+  ok(key in chapter, `chapter JSON has "${key}" (Unreal FAncestorChapter contract)`);
+}
+ok(Array.isArray(chapter.waypoints) && chapter.waypoints.length > 0, 'chapter has waypoints');
+const w0 = chapter.waypoints[0];
+for (const key of ['seq', 'place', 'lat', 'lng', 'date', 'year', 'event', 'narrative', 'confidence']) {
+  ok(key in w0, `waypoint JSON has "${key}" (Unreal FAncestorWaypoint contract)`);
+}
+ok(typeof w0.lat === 'number' && typeof w0.lng === 'number', 'waypoint lat/lng are numbers (Unreal doubles)');
+
 if (failures) { console.error(`\n${failures} test(s) failed`); process.exit(1); }
-console.log('OK — GEDCOM parser unit tests passed');
+console.log('OK — GEDCOM parser + data-bridge contract tests passed');

@@ -1,0 +1,17 @@
+# Unreal Engine generated / build output — never commit these.
+Binaries/
+Build/
+DerivedDataCache/
+Intermediate/
+Saved/
+.vs/
+*.VC.db
+*.opensdf
+*.sdf
+*.sln
+*.suo
+*.xcodeproj/
+*.xcworkspace/
+
+# Keep source, config, and the exported data (Content/Data/*.json).
+# Authored .uasset/.umap content is binary and lives in Content/ once you make it.

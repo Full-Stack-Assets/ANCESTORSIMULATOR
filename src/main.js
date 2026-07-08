@@ -41,6 +41,11 @@ const worldCanvas = document.getElementById('world');
 const canvasStack = document.getElementById('canvas-stack');
 const importBar = document.getElementById('import-bar');
 
+// Touch device? Show the on-screen joystick and enable tap/drag controls.
+const IS_TOUCH = (typeof window !== 'undefined') &&
+  (window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0);
+const touchControls = document.getElementById('touch-controls');
+
 let worldInitialized = false;
 let worldHudRunning = false;
 let promptFlash = 0; // small pulse timer for the "press E" prompt
@@ -125,6 +130,7 @@ function enterWorld() {
   }
   World.loadChapter(state.chapter, state.progress);
   canvasStack.classList.add('world-active');
+  if (IS_TOUCH && touchControls) touchControls.classList.add('visible');
   World.start();
   worldHudRunning = true;
   requestAnimationFrame(worldHudLoop);
@@ -134,6 +140,7 @@ function exitWorld() {
   worldHudRunning = false;
   World.stop();
   canvasStack.classList.remove('world-active');
+  if (touchControls) touchControls.classList.remove('visible');
 }
 
 function worldHudLoop() {
@@ -823,6 +830,53 @@ window.__ANC_MONETIZE__ = {
 };
 
 refreshProButton();
+
+// ---------------------------------------------------------------------
+// On-screen joystick (touch): a draggable thumb feeds an analog movement axis
+// into the world. Look-around is handled by touch-drag on the canvas itself
+// (see world.js). Uses Pointer Events so it works for touch and mouse alike.
+// ---------------------------------------------------------------------
+if (touchControls) {
+  const joystick = document.getElementById('joystick');
+  const thumb = document.getElementById('joystick-thumb');
+  const JOY_R = 48; // px travel that equals full tilt
+  let joyId = null;
+  let center = null;
+
+  const setThumb = (tx, ty) => { thumb.style.transform = `translate(${tx}px, ${ty}px)`; };
+
+  function joyMove(evt) {
+    if (joyId !== evt.pointerId || !center) return;
+    let dx = evt.clientX - center.x;
+    let dy = evt.clientY - center.y;
+    const dist = Math.hypot(dx, dy);
+    const clamped = Math.min(dist, JOY_R);
+    const ang = Math.atan2(dy, dx);
+    const tx = Math.cos(ang) * clamped;
+    const ty = Math.sin(ang) * clamped;
+    setThumb(tx, ty);
+    // screen-up (negative y) → walk forward; screen-right (positive x) → strafe right
+    World.setMoveAxis(-ty / JOY_R, tx / JOY_R);
+  }
+  function joyEnd(evt) {
+    if (joyId !== evt.pointerId) return;
+    joyId = null;
+    center = null;
+    setThumb(0, 0);
+    World.setMoveAxis(0, 0);
+  }
+  joystick.addEventListener('pointerdown', (evt) => {
+    const r = joystick.getBoundingClientRect();
+    center = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    joyId = evt.pointerId;
+    joystick.setPointerCapture(evt.pointerId);
+    joyMove(evt);
+    evt.preventDefault();
+  });
+  joystick.addEventListener('pointermove', joyMove);
+  joystick.addEventListener('pointerup', joyEnd);
+  joystick.addEventListener('pointercancel', joyEnd);
+}
 
 canvas.tabIndex = 0; // make the canvas keyboard-focusable
 canvas.addEventListener('click', (evt) => {

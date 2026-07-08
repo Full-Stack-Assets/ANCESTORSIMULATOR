@@ -6,8 +6,15 @@ html, body {
   background: #10151a;
   color: #e8e6df;
   font-family: Georgia, 'Times New Roman', serif;
-  display: flex;
-  justify-content: center;
+}
+
+/* Full-viewport-width block; #app centers itself with margin auto. (Using
+   `display:flex` on html/body made the body size to the 960px content and
+   overflow narrow screens, which broke the mobile layout and off-screened
+   taps — hence a plain block that respects the viewport width.) */
+body {
+  width: 100%;
+  overflow-x: hidden;
 }
 
 #app {
@@ -15,6 +22,7 @@ html, body {
   width: 960px;
   max-width: 100%;
   margin: 24px auto;
+  padding: 0 8px;
 }
 
 #home-link {
@@ -27,6 +35,39 @@ html, body {
 }
 #home-link:hover { color: #f2c14e; }
 #home-link:focus-visible { outline: 2px solid #f2c14e; outline-offset: 2px; }
+
+/* ---- On-screen touch joystick (mobile) ---- */
+#touch-controls {
+  position: fixed; /* anchored to the viewport so the stick is always thumb-reachable */
+  inset: 0;
+  z-index: 15;
+  pointer-events: none; /* only the joystick itself is interactive */
+  display: none;
+}
+#touch-controls.visible { display: block; }
+
+#joystick {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  background: rgba(20, 26, 32, 0.4);
+  border: 2px solid rgba(242, 239, 230, 0.35);
+  touch-action: none;
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+}
+#joystick-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(242, 193, 78, 0.85);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  will-change: transform;
+}
 
 #canvas-stack {
   position: relative;

@@ -36,6 +36,11 @@ examine" prompt) and every non-map screen exactly as before.
 - **Movement**: WASD/arrow keys walk and turn, drag the mouse to look
   around. There's no Pointer Lock — mouse-drag-to-look was chosen instead so
   the controls stay scriptable/testable in headless Chromium.
+- **Touch (mobile)**: on touch devices an on-screen **joystick** (bottom-left)
+  walks with analog speed, and dragging elsewhere on the world looks around; a
+  tap still registers as a click (so the "examine" prompt and every menu
+  button work). The page layout is responsive — the canvas scales to fit narrow
+  screens.
 - **Waypoints** are placed by `src/geo.js`, which turns each stop's real
   lat/lng into a local position: it keeps the true bearing between
   consecutive stops but compresses the true distance on a log curve, so a
@@ -186,8 +191,17 @@ into the game, and the SEO/OpenGraph tags are present:
 npm run smoke:landing -- http://127.0.0.1:8917 /tmp/landing-shots
 ```
 
-Set `PW_CHROMIUM_PATH` to run any harness against a preinstalled Chromium
-instead of Playwright's downloaded build.
+The mobile driver runs in a touch-emulated context and checks the joystick
+appears in the world, dragging it walks the player, and movement stops on
+release:
+
+```sh
+npm run smoke:mobile -- http://127.0.0.1:8917 /tmp/mobile-shots
+```
+
+All five suites also run in CI (`.github/workflows/ci.yml`) on every pull
+request. Set `PW_CHROMIUM_PATH` to run any harness against a preinstalled
+Chromium instead of Playwright's downloaded build.
 
 This harness has already caught two real bugs, not hypothetical ones:
 adding William's (longer) bio exposed a title-screen layout bug where a long
@@ -258,6 +272,7 @@ tools/sync_ancestor.py  ANC -> game data generator
 tools/smoke.mjs         Playwright e2e driver / smoke test (built-in chapters)
 tools/smoke_import.mjs  Playwright e2e driver for the GEDCOM import path
 tools/smoke_pro.mjs     Playwright e2e driver for the Pro/monetization gate
+tools/smoke_mobile.mjs  Playwright e2e driver for touch controls (joystick, responsive layout)
 tools/fixtures/sample.ged  small GEDCOM fixture the import smoke test drives
 ```
 

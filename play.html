@@ -18,6 +18,11 @@
 <body>
   <div id="app">
     <a id="home-link" href="index.html">← Ancestor Journey</a>
+    <!-- On-screen joystick for touch devices; shown only while walking. Drag
+         anywhere else on the world to look around. -->
+    <div id="touch-controls" aria-hidden="true">
+      <div id="joystick"><div id="joystick-thumb"></div></div>
+    </div>
     <div id="canvas-stack">
       <canvas id="world" width="960" height="540" aria-hidden="true"></canvas>
       <canvas id="stage" width="960" height="540" aria-label="Ancestor journey"></canvas>

@@ -47,6 +47,9 @@ jobs:
       - name: Smoke — landing page
         run: npm run smoke:landing -- http://127.0.0.1:8917 /tmp/shots/landing
 
+      - name: Smoke — mobile / touch controls
+        run: npm run smoke:mobile -- http://127.0.0.1:8917 /tmp/shots/mobile
+
       - name: Upload screenshots on failure
         if: failure()
         uses: actions/upload-artifact@v4

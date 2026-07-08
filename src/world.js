@@ -83,6 +83,8 @@ let props = [];
 let player = { x: 0, z: 0, yaw: 0, pitch: 0 };
 let keys = Object.create(null);
 let dragState = null;
+let touchLook = null; // active touch-drag look gesture on the world canvas
+let touchAxis = { f: 0, s: 0 }; // movement from the on-screen joystick (main.js)
 let interactable = null; // index of the nearest in-range marker, or null
 let prevInteractable = null;
 let nearestDistance = null;
@@ -137,6 +139,34 @@ export function initWorld(renderCanvas, inputCanvas) {
     player.pitch = clamp(dragState.pitch - dy * 0.0035, -1.1, 1.1);
   });
   window.addEventListener('mouseup', () => { dragState = null; });
+
+  // Touch drag-to-look. Only engages in the world (running), and only once the
+  // finger has actually moved a little — so a tap still becomes a click (the
+  // "examine" prompt and every 2D screen are canvas buttons that need clicks).
+  // The joystick is a separate DOM element, so its touches never reach here.
+  inputCanvas.addEventListener('touchstart', (e) => {
+    if (!running) return;
+    armAudio();
+    const t = e.changedTouches[0];
+    touchLook = { id: t.identifier, x: t.clientX, y: t.clientY, yaw: player.yaw, pitch: player.pitch, moved: false };
+  }, { passive: true });
+  window.addEventListener('touchmove', (e) => {
+    if (!touchLook) return;
+    const t = Array.from(e.changedTouches).find((tt) => tt.identifier === touchLook.id);
+    if (!t) return;
+    const dx = t.clientX - touchLook.x;
+    const dy = t.clientY - touchLook.y;
+    if (!touchLook.moved && Math.hypot(dx, dy) < 8) return; // below threshold — still a potential tap
+    touchLook.moved = true;
+    player.yaw = touchLook.yaw - dx * 0.005;
+    player.pitch = clamp(touchLook.pitch - dy * 0.005, -1.1, 1.1);
+    e.preventDefault(); // suppress page scroll once we're actually looking
+  }, { passive: false });
+  const endTouchLook = (e) => {
+    if (touchLook && Array.from(e.changedTouches).some((tt) => tt.identifier === touchLook.id)) touchLook = null;
+  };
+  window.addEventListener('touchend', endTouchLook);
+  window.addEventListener('touchcancel', endTouchLook);
 
   renderer.setAnimationLoop(() => {
     if (!running) return;
@@ -603,16 +633,19 @@ function step(dt) {
   if (keys.arrowleft) player.yaw += TURN_SPEED * dt;
   if (keys.arrowright) player.yaw -= TURN_SPEED * dt;
 
-  const forward = (keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0);
-  const strafe = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
+  // Movement blends keyboard (on/off) and the on-screen joystick (analog).
+  const forward = clamp((keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0) + touchAxis.f, -1, 1);
+  const strafe = clamp((keys.d ? 1 : 0) - (keys.a ? 1 : 0) + touchAxis.s, -1, 1);
   let moving = false;
-  if (forward || strafe) {
+  const mag = Math.hypot(forward, strafe);
+  if (mag > 0.02) {
     moving = true;
-    const mag = Math.hypot(forward, strafe) || 1;
-    const fx = -Math.sin(player.yaw) * forward, fz = -Math.cos(player.yaw) * forward;
-    const sx = Math.cos(player.yaw) * strafe, sz = -Math.sin(player.yaw) * strafe;
-    const dx = ((fx + sx) / mag) * PLAYER_SPEED * dt;
-    const dz = ((fz + sz) / mag) * PLAYER_SPEED * dt;
+    const speedFactor = Math.min(1, mag); // a half-pushed stick walks at half pace
+    const nf = forward / mag, ns = strafe / mag;
+    const fx = -Math.sin(player.yaw) * nf, fz = -Math.cos(player.yaw) * nf;
+    const sx = Math.cos(player.yaw) * ns, sz = -Math.sin(player.yaw) * ns;
+    const dx = (fx + sx) * PLAYER_SPEED * speedFactor * dt;
+    const dz = (fz + sz) * PLAYER_SPEED * speedFactor * dt;
     player.x += dx;
     player.z += dz;
 
@@ -687,6 +720,13 @@ function hashSeed(str) {
 }
 
 export function setOnArrive(fn) { onArrive = fn; }
+
+/** Feed analog movement from the on-screen joystick (main.js). forward: +ahead,
+ * -back; strafe: +right, -left; each in [-1, 1]. */
+export function setMoveAxis(forward, strafe) {
+  touchAxis.f = clamp(forward, -1, 1);
+  touchAxis.s = clamp(strafe, -1, 1);
+}
 export function start() {
   running = true;
   // Warm up: force shader compilation and one full post-processing pass NOW,
@@ -699,7 +739,7 @@ export function start() {
   } catch (e) { /* non-fatal — the loop will render normally */ }
   clock.getDelta(); // reset so the first interactive step() sees ~0 elapsed, not the warm-up cost
 }
-export function stop() { running = false; keys = Object.create(null); }
+export function stop() { running = false; keys = Object.create(null); touchAxis = { f: 0, s: 0 }; touchLook = null; }
 
 export function getWorldState() {
   return {

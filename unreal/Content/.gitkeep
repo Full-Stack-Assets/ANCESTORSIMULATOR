@@ -1,0 +1,3 @@
+Authored Unreal content (.uasset / .umap) is binary and is created in the
+editor — it lives here once you make it. The committed Data/ subfolder holds the
+chapter JSON exported by tools/export_chapter_json.mjs (text, diff-able).

@@ -13,6 +13,42 @@
 // continuations are honored. Unknown tags are ignored, not fatal — a partial
 // but useful parse always beats a hard failure on someone's real data.
 
+// ---- Encoding ---------------------------------------------------------------
+
+// Real GEDCOM exports come in several encodings — UTF-8, UTF-16 (Ancestry
+// often), and legacy ANSI/ANSEL (older desktop apps). Reading them all as UTF-8
+// (what FileReader.readAsText assumes) turns accented names to mojibake. Read
+// the file as bytes and decode by BOM, falling back to windows-1252 when a
+// no-BOM file fails to decode as UTF-8 (the common ANSI case; true ANSEL is
+// rare and degrades gracefully to mostly-right Latin text).
+export function decodeGedcom(input) {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    return new TextDecoder('utf-8').decode(bytes.subarray(3));
+  }
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder('utf-16le').decode(bytes.subarray(2));
+  }
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+    // UTF-16BE — TextDecoder's WHATWG labels don't include it, so byte-swap to LE.
+    const swapped = new Uint8Array(bytes.length - 2);
+    for (let i = 2; i + 1 < bytes.length; i += 2) {
+      swapped[i - 2] = bytes[i + 1];
+      swapped[i - 1] = bytes[i];
+    }
+    return new TextDecoder('utf-16le').decode(swapped);
+  }
+  const utf8 = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+  if (utf8.includes('�')) {
+    try {
+      return new TextDecoder('windows-1252').decode(bytes);
+    } catch {
+      return new TextDecoder('latin1').decode(bytes);
+    }
+  }
+  return utf8;
+}
+
 // ---- Line tokenizing -------------------------------------------------------
 
 // A GEDCOM line is: <level> [@xref@] <tag> [value]
@@ -122,6 +158,19 @@ export function cleanName(raw) {
   return name || 'Unknown';
 }
 
+// Resolve an individual's display name from its NAME structure, which may put
+// the name on the NAME line ("Josiah /Albertson/") OR only in GIVN/SURN
+// subtags (some exports do the latter, leaving the NAME line blank).
+function nameOf(indiRecord) {
+  const nameNode = child(indiRecord, 'NAME');
+  if (!nameNode) return 'Unknown';
+  if (nameNode.value && nameNode.value.trim()) return cleanName(nameNode.value);
+  const given = childValue(nameNode, 'GIVN');
+  const surname = childValue(nameNode, 'SURN');
+  const joined = [given, surname].filter(Boolean).join(' ').trim();
+  return joined || 'Unknown';
+}
+
 // ---- Events ----------------------------------------------------------------
 
 // Event tags we surface as life "waypoints", with a human label and a rough
@@ -197,7 +246,7 @@ export function parseGedcom(text) {
       const events = extractEvents(rec);
       individuals.set(rec.xref, {
         id: rec.xref,
-        name: cleanName(childValue(rec, 'NAME')),
+        name: nameOf(rec),
         sex: (childValue(rec, 'SEX') || '').toUpperCase() || null,
         events,
         famsIds: rec.children.filter((c) => c.tag === 'FAMS').map((c) => c.value.trim()),

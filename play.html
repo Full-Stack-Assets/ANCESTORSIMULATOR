@@ -36,6 +36,7 @@
     <div id="import-bar">
       <button id="import-btn" type="button">📂 Walk your own family tree</button>
       <input id="gedcom-input" type="file" accept=".ged,.gedcom,text/plain" hidden>
+      <button id="journeys-btn" type="button">🧭 My journeys</button>
       <button id="pro-btn" type="button">✦ Get Pro</button>
       <span id="import-status" role="status" aria-live="polite"></span>
     </div>
@@ -53,6 +54,19 @@
       <input id="picker-search" type="search" placeholder="Search by name…" aria-label="Search ancestors by name">
       <ul id="picker-list"></ul>
       <p id="picker-empty" class="picker-empty hidden">No one in this tree has enough dated life events to walk yet.</p>
+    </div>
+  </div>
+
+  <!-- Saved journeys (Pro). Resume ancestors you've walked, stored on-device. -->
+  <div id="journeys-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="journeys-title">
+    <div class="picker-inner">
+      <header class="picker-head">
+        <h2 id="journeys-title">My journeys</h2>
+        <button id="journeys-close" type="button" aria-label="Close">✕</button>
+      </header>
+      <p class="picker-privacy">🔒 Saved on this device only. Nothing is uploaded.</p>
+      <ul id="journeys-list"></ul>
+      <p id="journeys-empty" class="picker-empty hidden">No saved journeys yet — walk an ancestor and it'll appear here.</p>
     </div>
   </div>
 

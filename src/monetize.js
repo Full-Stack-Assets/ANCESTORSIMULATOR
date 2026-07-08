@@ -55,7 +55,7 @@ export const PRO_FEATURES = {
   unlimited_worlds: {
     name: 'Saved journeys',
     desc: 'Save every ancestor you’ve walked and pick up where you left off.',
-    live: false,
+    live: true,
   },
 };
 
@@ -140,11 +140,15 @@ export async function activateLicense(rawKey) {
       body: JSON.stringify({ license_key: key }),
     });
     const data = await res.json().catch(() => ({}));
-    if (res.ok && data && data.valid) {
+    // Lemon Squeezy's /validate returns { valid, error, license_key: { status } }.
+    const status = data && data.license_key && data.license_key.status;
+    if (res.ok && data && data.valid && (!status || status === 'active')) {
       writeEntitlement({ status: 'active', key, activatedAt: Date.now(), mode: 'lemonsqueezy' });
       return { ok: true, message: 'Thank you — Pro is unlocked on this device.' };
     }
-    return { ok: false, message: (data && data.error) || 'That key could not be validated.' };
+    if (status === 'expired') return { ok: false, message: 'That license has expired.' };
+    if (status === 'disabled') return { ok: false, message: 'That license has been disabled.' };
+    return { ok: false, message: (data && data.error) || 'That key could not be validated — check for typos.' };
   } catch {
     return { ok: false, message: 'Could not reach the license server. Check your connection and try again.' };
   }

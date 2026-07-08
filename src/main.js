@@ -5,10 +5,11 @@
 import { JOSIAH } from './data/josiah.js';
 import { WILLIAM } from './data/william.js';
 import * as World from './world.js';
-import { parseGedcom } from './gedcom.js';
+import { parseGedcom, decodeGedcom } from './gedcom.js';
 import { listPlayableIndividuals, buildChapter } from './chapter.js';
 import * as Monetize from './monetize.js';
 import { downloadPostcard } from './postcard.js';
+import * as Journeys from './journeys.js';
 
 // One entry per playable ancestor. Add a new chapter by running
 // tools/sync_ancestor.py for a reviewed ANC ancestor and adding it here.
@@ -129,6 +130,11 @@ function enterWorld() {
     worldInitialized = true;
   }
   World.loadChapter(state.chapter, state.progress);
+  // Saved journeys (Pro): persist the current ancestor + furthest progress each
+  // time you enter the world, so you can resume later — imported trees included.
+  if (Monetize.hasPro() && state.chapter) {
+    Journeys.saveJourney(state.chapter, state.progress, Date.now());
+  }
   canvasStack.classList.add('world-active');
   if (IS_TOUCH && touchControls) touchControls.classList.add('visible');
   World.start();
@@ -651,10 +657,12 @@ gedcomInput.addEventListener('change', () => {
   reader.onerror = () => setImportStatus('Could not read that file.', true);
   reader.onload = () => {
     try {
-      importedParse = parseGedcom(String(reader.result));
+      // Read raw bytes and decode by encoding (UTF-8/UTF-16/ANSI) so accented
+      // names in real exports don't come through as mojibake.
+      importedParse = parseGedcom(decodeGedcom(reader.result));
       importedList = listPlayableIndividuals(importedParse);
       setImportStatus(
-        `Loaded ${importedParse.individuals.size.toLocaleString()} people — ${importedList.length} ready to walk.`
+        `Loaded ${importedParse.individuals.size.toLocaleString()} people — ${importedList.length.toLocaleString()} ready to walk.`
       );
       openPicker();
     } catch (err) {
@@ -663,7 +671,7 @@ gedcomInput.addEventListener('change', () => {
       setImportStatus(err && err.message ? err.message : 'That file could not be parsed as GEDCOM.', true);
     }
   };
-  reader.readAsText(file);
+  reader.readAsArrayBuffer(file); // decode ourselves (see decodeGedcom)
   gedcomInput.value = ''; // let the same file be re-picked later
 });
 
@@ -679,10 +687,13 @@ function closePicker() {
   canvas.focus();
 }
 
+const PICKER_MAX = 300; // cap DOM nodes so a 20k-person tree doesn't lag the picker
+
 function renderPickerList(list) {
   pickerList.innerHTML = '';
   pickerEmpty.classList.toggle('hidden', list.length > 0);
-  for (const person of list) {
+  const shown = list.slice(0, PICKER_MAX);
+  for (const person of shown) {
     const li = document.createElement('li');
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -698,6 +709,12 @@ function renderPickerList(list) {
     btn.addEventListener('click', () => startImportedChapter(person.id));
     li.appendChild(btn);
     pickerList.appendChild(li);
+  }
+  if (list.length > PICKER_MAX) {
+    const note = document.createElement('li');
+    note.className = 'picker-more';
+    note.textContent = `Showing the first ${PICKER_MAX} of ${list.length.toLocaleString()} — type a name to narrow it down.`;
+    pickerList.appendChild(note);
   }
 }
 
@@ -877,6 +894,79 @@ if (touchControls) {
   joystick.addEventListener('pointerup', joyEnd);
   joystick.addEventListener('pointercancel', joyEnd);
 }
+
+// ---------------------------------------------------------------------
+// Saved journeys (Pro): resume ancestors you've walked. Stored on-device
+// (see src/journeys.js). The button opens the Pro upsell if not yet unlocked.
+// ---------------------------------------------------------------------
+
+const journeysBtn = document.getElementById('journeys-btn');
+const journeysModal = document.getElementById('journeys-modal');
+const journeysClose = document.getElementById('journeys-close');
+const journeysListEl = document.getElementById('journeys-list');
+const journeysEmpty = document.getElementById('journeys-empty');
+
+function openJourneys() {
+  if (!Monetize.hasPro()) { openProModal(); return; }
+  renderJourneys();
+  journeysModal.classList.remove('hidden');
+  journeysClose.focus();
+}
+function closeJourneys() {
+  journeysModal.classList.add('hidden');
+  canvas.focus();
+}
+
+function renderJourneys() {
+  const list = Journeys.listJourneys();
+  journeysListEl.innerHTML = '';
+  journeysEmpty.classList.toggle('hidden', list.length > 0);
+  for (const j of list) {
+    const li = document.createElement('li');
+    li.className = 'journey-item';
+
+    const main = document.createElement('button');
+    main.type = 'button';
+    main.className = 'journey-main';
+    const years = j.birthYear || j.deathYear ? `${j.birthYear || '?'}–${j.deathYear || '?'}` : 'dates unknown';
+    const stops = j.total ? `${Math.min(j.progress + 1, j.total)}/${j.total} stops` : 'not started';
+    main.innerHTML =
+      `<span class="j-name">${escapeHtml(j.name)}</span>` +
+      `<span class="j-years">${escapeHtml(years)}</span>` +
+      `<div class="j-meta">${stops}${j.imported ? ' · from your tree' : ''}</div>`;
+    main.addEventListener('click', () => resumeJourney(j.id));
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'journey-del';
+    del.setAttribute('aria-label', `Delete ${j.name}`);
+    del.textContent = '🗑';
+    del.addEventListener('click', () => { Journeys.removeJourney(j.id); renderJourneys(); });
+
+    li.appendChild(main);
+    li.appendChild(del);
+    journeysListEl.appendChild(li);
+  }
+}
+
+function resumeJourney(id) {
+  const j = Journeys.getJourney(id);
+  if (!j || !j.chapter) return;
+  closeJourneys();
+  state.chapter = j.chapter;
+  state.progress = j.progress | 0;
+  state.activeIndex = null;
+  state.focusIndex = 0;
+  state.screen = 'title';
+  render();
+}
+
+journeysBtn.addEventListener('click', openJourneys);
+journeysClose.addEventListener('click', closeJourneys);
+journeysModal.addEventListener('click', (evt) => { if (evt.target === journeysModal) closeJourneys(); });
+window.addEventListener('keydown', (evt) => {
+  if (evt.key === 'Escape' && !journeysModal.classList.contains('hidden')) closeJourneys();
+});
 
 canvas.tabIndex = 0; // make the canvas keyboard-focusable
 canvas.addEventListener('click', (evt) => {

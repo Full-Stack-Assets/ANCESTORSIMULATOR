@@ -24,6 +24,9 @@ jobs:
       - name: Install dependencies
         run: npm ci || npm install
 
+      - name: Unit tests (GEDCOM parser)
+        run: npm run test:unit
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
@@ -49,6 +52,9 @@ jobs:
 
       - name: Smoke — mobile / touch controls
         run: npm run smoke:mobile -- http://127.0.0.1:8917 /tmp/shots/mobile
+
+      - name: Smoke — saved journeys (Pro)
+        run: npm run smoke:journeys -- http://127.0.0.1:8917 /tmp/shots/journeys
 
       - name: Upload screenshots on failure
         if: failure()

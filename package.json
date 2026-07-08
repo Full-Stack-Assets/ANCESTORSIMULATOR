@@ -9,11 +9,13 @@
   },
   "scripts": {
     "serve": "http-server . -p 8917 -s",
+    "test:unit": "node tools/test_gedcom.mjs",
     "smoke": "node tools/smoke.mjs",
     "smoke:import": "node tools/smoke_import.mjs",
     "smoke:pro": "node tools/smoke_pro.mjs",
     "smoke:landing": "node tools/smoke_landing.mjs",
-    "smoke:mobile": "node tools/smoke_mobile.mjs"
+    "smoke:mobile": "node tools/smoke_mobile.mjs",
+    "smoke:journeys": "node tools/smoke_journeys.mjs"
   },
   "repository": {
     "type": "git",

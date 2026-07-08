@@ -44,8 +44,6 @@ await page.waitForTimeout(150);
 expect(await page.isVisible('#pro-modal'), 'Pro modal did not open');
 const featureCount = await page.$$eval('#pro-features li', (els) => els.length);
 expect(featureCount === 3, `expected 3 Pro features, got ${featureCount}`);
-const soon = await page.$$eval('.pf-soon', (els) => els.length);
-expect(soon >= 1, 'expected at least one "coming soon" feature');
 await page.screenshot({ path: path.join(OUT_DIR, '01-pro-modal.png') });
 
 // 2. Unconfigured checkout degrades honestly (no fake purchase).

@@ -57,6 +57,64 @@ unreal/
    from `Content/Data/index.json`, projects the waypoints, and spawns a marker
    at each — walk between them with WASD + mouse.
 
+## Drive it with Claude Code (the `unreal-mcp` plugin)
+
+This project is **pre-wired** for the
+[`unreal-engine-skills-for-claude-code`](https://github.com/full-stack-assets/unreal-engine-skills-for-claude-code-plugin)
+plugin, which lets a Claude Code session control the running Editor over MCP
+(spawn actors, edit Blueprints/Materials/UMG, run automation tests, recompile
+C++ via Live Coding, etc.). What's committed here:
+
+- `AncestorJourney.uproject` enables the **`ModelContextProtocol`** (server) and
+  **`AllToolsets`** (tools) plugins.
+- `.mcp.json` (next to the `.uproject`) points Claude Code at the default MCP
+  endpoint `http://127.0.0.1:8000/mcp`.
+
+**This only works on a machine with the Unreal Editor** — the MCP server runs
+*inside* a live Editor, so it cannot be driven from a headless/CI box (there is
+no Editor and no `unreal-mcp` server there). To use it:
+
+1. **Engine plugins.** `ModelContextProtocol` + `AllToolsets` must exist in your
+   engine (they're Epic's UnrealMCP plugins). If your engine doesn't have them,
+   the Editor will prompt about missing plugins on load — install/build them
+   first, or remove the two entries from the `.uproject` to open without MCP.
+2. **Install the Claude Code plugin** (from the plugin repo):
+   ```
+   /plugin marketplace add /path/to/unreal-engine-skills-for-claude-code-plugin
+   /plugin install unreal-engine-skills-for-claude-code@unreal-engine-skills-for-claude-code
+   ```
+   (or the team-wide `.claude/settings.json` form in that repo's README).
+3. **Auto-start the server.** Add to
+   `Saved/Config/<Platform>Editor/EditorPerProjectUserSettings.ini` (per-user,
+   not committed):
+   ```ini
+   [/Script/ModelContextProtocolEngine.ModelContextProtocolSettings]
+   bAutoStartServer=True
+   ```
+   Or run `ModelContextProtocol.StartServer` in the Editor console each session.
+4. **Confirm the link.** With the Editor running, `/mcp` in Claude Code should
+   list `unreal-mcp` connected. If you changed the port, regenerate the client
+   config with `ModelContextProtocol.GenerateClientConfig ClaudeCode` (or edit
+   `.mcp.json`).
+
+Once connected, Claude can drive this scaffold end-to-end. Useful first prompts,
+in roughly the order this project needs them:
+
+- *"Create a Level with a floor plane, a DirectionalLight, a SkyAtmosphere and a
+  SkyLight, set it as the startup map, then Play."* — the scaffold spawns the
+  chapter's markers on BeginPlay, so this is all that's between you and walking
+  the sample ancestor.
+- *"After I edit the C++, recompile with Live Coding and report any errors."* —
+  the fastest loop for fixing whatever the first build surfaces.
+- *"Build a UMG widget that shows a waypoint's narrative + confidence, and show
+  it when the player is near a marker."* — implements the "examine" interaction
+  from the roadmap below.
+- *"Discover and run the project's C++ automation tests and summarize failures."*
+
+Safety: MCP calls mutate a live Editor and run on the game thread — **save and
+commit before a long MCP session**, keep calls sequential, and review the diff
+after. See the plugin's `skills/unreal-mcp/SKILL.md` for the full contract.
+
 ## The data bridge (why both builds stay in sync)
 
 `tools/export_chapter_json.mjs` runs the **same GEDCOM parser and chapter

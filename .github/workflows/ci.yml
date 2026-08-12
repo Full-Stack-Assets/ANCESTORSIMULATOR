@@ -1,9 +1,9 @@
 name: CI
 
 # Runs the full Playwright smoke suite (game, GEDCOM import, Pro gate, landing)
-# on every pull request and on pushes to the main branches. Vercel already
-# auto-deploys previews; this is the missing gate that proves the build works
-# before it ships. A static site needs no build step, so this is pure verify.
+# on every pull request and on pushes to the main branches. The configured
+# deployment path is separate from this verification gate; this workflow proves
+# the build works before it ships. A static site needs no build step, so this is pure verify.
 on:
   pull_request:
   push:

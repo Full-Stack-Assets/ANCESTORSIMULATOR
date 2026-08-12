@@ -38,7 +38,7 @@ See "Swapping providers" below.)
    ```
    Optionally also update the price shown on the landing page
    (`index.html`, the Pricing section) to match.
-5. **Deploy** — commit and push; Vercel auto-deploys. That's it.
+5. **Deploy** — commit and push through the deployment pipeline configured for this repository.
 
 ## The customer flow (already built)
 
